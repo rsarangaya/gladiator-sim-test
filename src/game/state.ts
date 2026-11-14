@@ -7,7 +7,9 @@ import { simulateFight } from '../sim/sim';
 import { CLASS_IDS, ZONES, type ClassId, type FightResult, type FighterSpec, type Injury, type InjuryTier, type Personality, type Stats, type Zone } from '../sim/types';
 
 export type Difficulty = 'normal' | 'hard';
-export const STAT_KEYS: (keyof Stats)[] = ['str', 'agi', 'vit', 'end', 'tec'];
+export const STAT_KEYS: (keyof Stats)[] = ['str', 'agi', 'vit', 'end', 'tec', 'spi'];
+/** Spirit does not add fighting power, so it is left out of power budgets. */
+export const POWER_KEYS: (keyof Stats)[] = ['str', 'agi', 'vit', 'end', 'tec'];
 export const MAX_ENERGY = 3;
 export const START_POINTS = 12;
 
@@ -84,7 +86,7 @@ export const REST_GOLD = 12;
 export const PROSTHETIC_COST = 140;
 
 export function newGame(name: string, classId: ClassId, difficulty: Difficulty, alloc: Partial<Stats> = {}, mode: Mode = 'free', seed = 1, size = 10): Save {
-  const added: Stats = { str: 0, agi: 0, vit: 0, end: 0, tec: 0 };
+  const added: Stats = { str: 0, agi: 0, vit: 0, end: 0, tec: 0, spi: 0 };
   let spent = 0;
   for (const k of STAT_KEYS) {
     const v = Math.max(0, Math.floor(alloc[k] ?? 0));
@@ -101,9 +103,9 @@ export function newGame(name: string, classId: ClassId, difficulty: Difficulty, 
 export const level = (s: Save) => 1 + Math.floor(s.xp / 3);
 export const stats = (s: Save): Stats => {
   const b = CLASSES[s.classId].base;
-  return { str: b.str + s.added.str, agi: b.agi + s.added.agi, vit: b.vit + s.added.vit, end: b.end + s.added.end, tec: b.tec + s.added.tec };
+  return { str: b.str + s.added.str, agi: b.agi + s.added.agi, vit: b.vit + s.added.vit, end: b.end + s.added.end, tec: b.tec + s.added.tec, spi: b.spi + s.added.spi };
 };
-export const totalPoints = (s: Save) => STAT_KEYS.reduce((a, k) => a + stats(s)[k], 0);
+export const totalPoints = (s: Save) => POWER_KEYS.reduce((a, k) => a + stats(s)[k], 0);
 
 export function spendPoint(s: Save, k: keyof Stats): boolean {
   if (s.unspent <= 0 || stats(s)[k] >= 100) return false;
@@ -151,7 +153,7 @@ export const permanentWounds = (s: Save) => s.mode === 'career' || s.difficulty 
 
 function specFromBudget(classId: ClassId, budget: number, tier: number, name: string, personality?: Personality, skillN?: number): FighterSpec {
   const c = CLASSES[classId];
-  const baseTotal = STAT_KEYS.reduce((a, k) => a + c.base[k], 0);
+  const baseTotal = POWER_KEYS.reduce((a, k) => a + c.base[k], 0);
   const w = { ...WEAPONS[c.weapon] };
   w.dmg *= 1 + 0.1 * tier;
   const armor = { ...c.armor };
@@ -687,6 +689,7 @@ export function loadGame(): Save | null {
     if (s && s.v === 1) {
       s.mode ??= 'free';
       s.gear ??= freshGear();
+      s.added.spi ??= 0;
       s.news ??= []; s.sick ??= 0; s.bedridden ??= 0; s.runSeed ??= 1; s.neglect ??= 0; s.skills ??= []; s.skillPoints ??= 0; s.trainerBuys ??= 0; s.perks ??= { weapon: [], armor: [] };
       if (s.career && !s.career.prelim) { s.career.prelim = []; s.career.prelimWins = 0; s.career.size ??= s.career.ladder.length; }
       return s;

@@ -23,9 +23,9 @@ const app = document.getElementById('app')!;
 let save: Save | null = loadGame();
 let msg = '';
 
-const STAT_LABEL: Record<keyof Stats, string> = { str: 'Strength', agi: 'Agility', vit: 'Vitality', end: 'Endurance', tec: 'Technique' };
+const STAT_LABEL: Record<keyof Stats, string> = { str: 'Strength', agi: 'Agility', vit: 'Vitality', end: 'Endurance', tec: 'Technique', spi: 'Spirit' };
 const STAT_HINT: Record<keyof Stats, string> = {
-  str: 'damage', agi: 'hit, dodge, speed', vit: 'health', end: 'stamina', tec: 'crits, aim, blocking',
+  str: 'damage', agi: 'hit, dodge, speed', vit: 'health', end: 'stamina', tec: 'crits, aim, blocking', spi: 'will to fight on',
 };
 const ZONE_LABEL: Record<Zone, string> = { head: 'Head', torso: 'Torso', armW: 'Weapon arm', armS: 'Shield arm', legL: 'Left leg', legR: 'Right leg' };
 
@@ -76,7 +76,7 @@ function create() {
   let diff: Difficulty = 'normal';
   let mode: Mode = 'free';
   let size = 10;
-  const alloc: Stats = { str: 0, agi: 0, vit: 0, end: 0, tec: 0 };
+  const alloc: Stats = { str: 0, agi: 0, vit: 0, end: 0, tec: 0, spi: 0 };
   const left = () => START_POINTS - STAT_KEYS.reduce((a, k) => a + alloc[k], 0);
 
   const render = () => {
@@ -205,11 +205,11 @@ function training() {
   scene.spots = GROUND_SPOTS;
   scene.draw = (c, t, hover) => {
     drawGrounds(c, t, hover, canTrain, vals);
-    drawCharacter(c, tr, 385, 548, 1.15, { t, armed: false, pose: TRAINER_POSE, look: SHOPKEEPER_LOOK(tr) });
-    drawCharacter(c, spec, 575, 548, 1.15, { t, injuries: s.injuries, prosthetics: s.prosthetics });
+    drawCharacter(c, tr, 317, 540, 0.95, { t, armed: false, pose: TRAINER_POSE, look: SHOPKEEPER_LOOK(tr) });
+    drawCharacter(c, spec, 472, 540, 0.95, { t, injuries: s.injuries, prosthetics: s.prosthetics });
     const st = STATIONS.find((x) => x.id === hover);
     if (st) speech(c, `${st.what}: +1 ${st.id.toUpperCase()} (1 energy)`, Math.min(st.x - 40, 700), 190, 260);
-    else if (hover === 'trainer') speech(c, `Hire me: +2 stat points for ${trainerCost(s)} gold.`, 300, 340, 260);
+    else if (hover === 'trainer') speech(c, `Hire me: +2 stat points for ${trainerCost(s)} gold.`, 250, 420, 260);
   };
   scene.onClick = (id) => {
     if (id === 'trainer') {

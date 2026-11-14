@@ -45,7 +45,7 @@ export function drawCharacter(c: CanvasRenderingContext2D, spec: FighterSpec, x:
 
 // ---- icons ---------------------------------------------------------------------------------
 export type IconKind = 'sword' | 'shield' | 'armor' | 'hammer' | 'leg' | 'scroll' | 'tent' | 'hourglass' | 'flag' | 'help' | 'menu' | 'coin' | 'bolt'
-  | 'str' | 'agi' | 'vit' | 'end' | 'tec' | 'skull' | 'trainer' | 'coliseum' | 'shop' | 'ground';
+  | 'str' | 'agi' | 'vit' | 'end' | 'tec' | 'spi' | 'skull' | 'trainer' | 'coliseum' | 'shop' | 'ground';
 export function icon(c: CanvasRenderingContext2D, k: IconKind, x: number, y: number, s: number) {
   c.save(); c.translate(x, y); c.scale(s / 32, s / 32); c.lineCap = 'round'; c.lineJoin = 'round';
   const ln = 2.6, dark = '#1d1511';
@@ -69,6 +69,7 @@ export function icon(c: CanvasRenderingContext2D, k: IconKind, x: number, y: num
     case 'vit': c.beginPath(); c.moveTo(0, 12); c.bezierCurveTo(-18, -2, -8, -14, 0, -5); c.bezierCurveTo(8, -14, 18, -2, 0, 12); c.fillStyle = '#d0483a'; c.fill(); stroke('#7a1c14', 2); break;
     case 'end': c.beginPath(); c.arc(-5, 0, 7, 0, 7); c.arc(5, 0, 7, 0, 7); c.fillStyle = '#e8a0a8'; c.fill(); stroke('#a45a68', 2); c.beginPath(); c.moveTo(0, -12); c.lineTo(0, -2); stroke('#cfd6dc', 2.4); break;
     case 'tec': c.beginPath(); c.arc(0, 0, 12, 0, 7); c.fillStyle = '#f1e6d0'; c.fill(); stroke('#7a1c14', 2); c.beginPath(); c.arc(0, 0, 7, 0, 7); c.fillStyle = '#c4513a'; c.fill(); c.beginPath(); c.arc(0, 0, 2.6, 0, 7); c.fillStyle = '#f1e6d0'; c.fill(); break;
+    case 'spi': c.beginPath(); c.moveTo(0, -14); c.bezierCurveTo(12, -4, 12, 8, 0, 13); c.bezierCurveTo(-12, 8, -12, -4, 0, -14); c.fillStyle = '#ff8a2a'; c.fill(); stroke('#a8431a', 2); c.beginPath(); c.moveTo(0, -3); c.bezierCurveTo(6, 3, 5, 9, 0, 11); c.bezierCurveTo(-5, 9, -6, 3, 0, -3); c.fillStyle = '#ffe27a'; c.fill(); break;
     case 'skull': c.beginPath(); c.arc(0, -3, 10, 0, 7); c.fillStyle = '#f1ead6'; c.fill(); stroke('#6a604c', 2); c.fillStyle = '#1d1511'; c.beginPath(); c.arc(-4, -3, 2.6, 0, 7); c.arc(4, -3, 2.6, 0, 7); c.fill(); break;
     case 'trainer': c.beginPath(); c.arc(0, -6, 6, 0, 7); c.fillStyle = '#d9a67a'; c.fill(); stroke('#6b4a2e', 1.6); c.beginPath(); c.moveTo(-9, 13); c.lineTo(-7, 2); c.lineTo(7, 2); c.lineTo(9, 13); c.closePath(); c.fillStyle = '#9a4636'; c.fill(); stroke('#4a1f18', 2); break;
     case 'coliseum': c.beginPath(); c.ellipse(0, 4, 14, 8, 0, 0, 7); c.fillStyle = '#c4a47a'; c.fill(); stroke('#6e523f', 2); for (const xx of [-8, -2, 4, 10]) { c.beginPath(); c.roundRect(xx - 2, 1, 4, 8, 2); c.fillStyle = '#1b1218'; c.fill(); } break;
@@ -255,17 +256,18 @@ export function speech(c: CanvasRenderingContext2D, text: string, x: number, y: 
 }
 
 // ---- training grounds -------------------------------------------------------------------------
-export type StatKey = 'str' | 'agi' | 'vit' | 'end' | 'tec';
+export type StatKey = 'str' | 'agi' | 'vit' | 'end' | 'tec' | 'spi';
 export const STATIONS: { id: StatKey; x: number; label: string; what: string }[] = [
-  { id: 'str', x: 110, label: 'WEIGHTS', what: 'Lift weights' },
-  { id: 'agi', x: 290, label: 'TRACK', what: 'Sprint laps' },
-  { id: 'vit', x: 480, label: 'LOGS', what: 'Carry logs' },
-  { id: 'end', x: 670, label: 'ROPES', what: 'Skip rope' },
-  { id: 'tec', x: 850, label: 'DUMMY', what: 'Sword forms' },
+  { id: 'str', x: 85, label: 'WEIGHTS', what: 'Lift weights' },
+  { id: 'agi', x: 240, label: 'TRACK', what: 'Sprint laps' },
+  { id: 'vit', x: 395, label: 'LOGS', what: 'Carry logs' },
+  { id: 'end', x: 550, label: 'ROPES', what: 'Skip rope' },
+  { id: 'tec', x: 705, label: 'DUMMY', what: 'Sword forms' },
+  { id: 'spi', x: 860, label: 'BRAZIER', what: 'Meditate' },
 ];
 export const GROUND_SPOTS: Spot[] = [
-  ...STATIONS.map((s) => ({ id: s.id as string, x: s.x - 86, y: 200, w: 172, h: 250 })),
-  { id: 'trainer', x: 335, y: 385, w: 100, h: 160 },
+  ...STATIONS.map((s) => ({ id: s.id as string, x: s.x - 74, y: 190, w: 148, h: 240 })),
+  { id: 'trainer', x: 275, y: 430, w: 84, h: 110 },
 ];
 
 /** One training station, centered at x with its feet on y. Drawn small for the yard, large for the exercise backdrop. */
@@ -303,6 +305,15 @@ export function stationProp(c: CanvasRenderingContext2D, k: StatKey, x: number, 
       c.strokeStyle = dk; c.lineWidth = 3; c.fillStyle = '#d4af4a'; for (const xx of [-34, 34]) { c.beginPath(); c.arc(xx, -98, 14, 0, 7); c.stroke(); }
       break;
     }
+    case 'spi': { // a stone brazier with a living flame
+      c.fillStyle = '#6e6a66'; c.strokeStyle = dk; c.lineWidth = 3; c.beginPath(); c.moveTo(-26, 0); c.lineTo(26, 0); c.lineTo(18, -52); c.lineTo(-18, -52); c.closePath(); c.fill(); c.stroke();
+      c.fillStyle = '#8a8680'; c.beginPath(); c.roundRect(-34, -66, 68, 16, 6); c.fill(); c.stroke();
+      const fl = 1 + Math.sin(t * 7) * 0.08, fl2 = Math.sin(t * 5 + 1) * 4;
+      c.fillStyle = '#ff7a22'; c.beginPath(); c.moveTo(-22, -66); c.bezierCurveTo(-26, -92, -6 + fl2, -96, 0 + fl2, -128 * fl); c.bezierCurveTo(8 + fl2, -96, 28, -90, 22, -66); c.closePath(); c.fill(); c.stroke();
+      c.fillStyle = '#ffd24a'; c.beginPath(); c.moveTo(-12, -66); c.bezierCurveTo(-14, -84, -2 + fl2, -86, 0 + fl2, -106 * fl); c.bezierCurveTo(4 + fl2, -86, 16, -82, 12, -66); c.closePath(); c.fill();
+      c.fillStyle = '#7a1c14'; c.strokeStyle = dk; c.lineWidth = 2; for (const xx of [-64, 64]) { c.beginPath(); c.moveTo(xx - 10, -4); c.lineTo(xx, -70); c.lineTo(xx + 10, -4); c.closePath(); c.fill(); c.stroke(); }
+      break;
+    }
     case 'tec': {
       c.fillStyle = '#6b4a2e'; c.strokeStyle = dk; c.lineWidth = 3; c.fillRect(-6, -130, 12, 130); c.strokeRect(-6, -130, 12, 130);
       c.fillStyle = '#d8b878'; c.beginPath(); c.ellipse(0, -82, 30, 38, 0, 0, 7); c.fill(); c.stroke(); c.beginPath(); c.arc(0, -134, 16, 0, 7); c.fill(); c.stroke();
@@ -324,13 +335,13 @@ export function drawGrounds(c: CanvasRenderingContext2D, t: number, hover: strin
   for (const st of STATIONS) {
     const hot = hover === st.id && canTrain;
     c.save(); c.translate(0, hot ? -4 : 0);
-    stationProp(c, st.id, st.x, 400, 1, t, hot);
+    stationProp(c, st.id, st.x, 335, 1, t, hot);
     c.restore();
     c.globalAlpha = canTrain ? 1 : 0.55;
-    sign(c, st.label, st.x, 440, hot, st.id);
+    sign(c, st.label, st.x, 372, hot, st.id);
     c.globalAlpha = 1;
-    c.fillStyle = 'rgba(20,10,5,.75)'; rr(c, st.x - 34, 462, 68, 30, 8); c.fill();
-    icon(c, st.id, st.x - 16, 477, 22); c.fillStyle = '#ffe9a8'; c.font = 'bold 18px system-ui'; c.textAlign = 'left'; c.fillText(String(vals[st.id]), st.x - 2, 484);
+    c.fillStyle = 'rgba(20,10,5,.75)'; rr(c, st.x - 34, 392, 68, 30, 8); c.fill();
+    icon(c, st.id, st.x - 16, 407, 22); c.fillStyle = '#ffe9a8'; c.font = 'bold 18px system-ui'; c.textAlign = 'left'; c.fillText(String(vals[st.id]), st.x - 2, 414);
   }
   torch(c, 20, 220, t, 1); torch(c, 940, 220, t, 1);
 }

@@ -88,6 +88,17 @@ export function drawExercise(c: CanvasRenderingContext2D, stat: StatKey, p: numb
       c.fillStyle = 'rgba(40,20,10,.3)'; c.beginPath(); c.ellipse(CX, CY + 4, 70 - hop * 0.8, 12, 0, 0, 7); c.fill();
       break;
     }
+    case 'spi': { // meditation before a brazier: breathe in, hold, the flame and aura swell
+      backdrop(c, t);
+      stationProp(c, 'spi', 760, 470, 1.6, t, false);
+      const k = Math.sin(Math.PI * p), br = Math.sin(p * Math.PI * 4);
+      const pz = pose({ lean: 3, head: 10 * k, drop: 14 * e, wU: 38 + 20 * k, wL: 150 + 10 * br, sU: 38 + 20 * k, sL: 150 + 10 * br, fU: 18, fL: 6, bU: -18, bL: -6 });
+      for (let i = 0; i < 3; i++) { const q = (p * 1.4 + i / 3) % 1; c.strokeStyle = `rgba(255,200,90,${0.5 * (1 - q) * e})`; c.lineWidth = 5 * (1 - q) + 1; c.beginPath(); c.ellipse(CX, CY - 120, 70 + q * 190, 90 + q * 190, 0, 0, 7); c.stroke(); }
+      const glow = c.createRadialGradient(CX, CY - 120, 10, CX, CY - 120, 200); glow.addColorStop(0, `rgba(255,190,90,${0.35 * e})`); glow.addColorStop(1, 'rgba(255,190,90,0)'); c.fillStyle = glow; c.fillRect(0, 0, SW, SH);
+      drawCharacter(c, spec, CX, CY, SC, { ...opts, pose: pz });
+      for (let i = 0; i < 6; i++) { const q = (t * 0.7 + i / 6) % 1; c.fillStyle = `rgba(255,220,130,${0.8 * (1 - q) * e})`; c.beginPath(); c.arc(CX - 60 + i * 24 + Math.sin(t * 4 + i) * 6, CY - 80 - q * 240, 3.5, 0, 7); c.fill(); }
+      break;
+    }
     case 'tec': { // sword forms against a straw dummy
       backdrop(c, t);
       const per = 0.55, k = ((p * 1.9) % per) / per, tick = k * 11;
