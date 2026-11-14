@@ -412,6 +412,12 @@ export function settleBout(s: Save, b: Bout, r: FightResult): Outcome {
     s.gold += purse;
     text.push(r.method === 'yield' ? `You yielded and live to fight on. +${purse} gold.` : `Defeated, but alive. +${purse} gold.`);
     if (c?.champion && !special && !spar) { s.alive = false; text.push('You lost the title. Your reign is over.'); }
+    else if (c && !special && !spar) {
+      // a lost ladder fight costs you your place: you slide down and face someone else next
+      if (inPrelims(c)) text.push('Qualifier lost. You must still win your way in.');
+      else if (c.beaten > 0) text.push(dropRank(s, 1));
+      else if (c.prelimWins > 0) { c.prelimWins--; text.push('You fall out of the rankings and must win a qualifier again.'); }
+    }
   }
   applyWear(s, r, text);
   if (special) delete s.encounter;

@@ -72,12 +72,24 @@ describe('career mode', () => {
     expect(score(s)).toBe(20);
   });
 
+  it('losing a ladder fight drops you a rank', () => {
+    const s = career();
+    qualify(s);
+    play(s, 20, 0); play(s, 21, 0); play(s, 22, 0);
+    expect(s.career!.beaten).toBe(3);
+    const { out } = play(s, 23, 1);
+    expect(out.text.join(' ')).toMatch(/slip back/);
+    expect(s.career!.beaten).toBe(2);
+  });
+
   it('a loss on the ladder is survivable, a loss as champion ends the run', () => {
     const s = career();
     qualify(s);
     play(s, 1, 1);
     expect(s.alive).toBe(true);
     expect(s.career!.beaten).toBe(0);
+    expect(inPrelims(s.career!)).toBe(true); // falling off the bottom sends you back to a qualifier
+    qualify(s);
     for (let i = 0; i < 10; i++) play(s, 10 + i, 0);
     play(s, 50, 0);
     expect(s.career!.defenses).toBe(1);

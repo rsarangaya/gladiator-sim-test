@@ -60,7 +60,7 @@ export const TUNING = {
   hitMax: 0.95,
   yieldAt: { aggressive: 0.04, balanced: 0.05, defensive: 0.07 },
   yieldAtPlayer: { aggressive: 0.1, balanced: 0.12, defensive: 0.16 },
-  yieldChancePlayer: 0.08,
+  yieldChancePlayer: 0.012,
   yieldChance: 0.016,       // per decision once below the threshold (low = fights end in death more often)
   staminaRegen: 0.2,       // per tick base
   staminaRegenEnd: 0.008,  // per tick per Endurance point

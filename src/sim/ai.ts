@@ -42,7 +42,7 @@ export function decide(self: Runtime, opp: Runtime, r: Rng): Decision {
 
   // --- yield ---------------------------------------------------------------
   const hum = !!self.spec.human; // the player's gladiator knows when to quit; opponents fight on much longer
-  const sm = Math.max(0.1, Math.min(1.8, 1.6 - self.spec.stats.spi * 0.06)); // spirit: high = rarely quits, low = quits while still healthy
+  const sm = Math.max(0.1, Math.min(hum ? 1 : 1.8, 1.6 - self.spec.stats.spi * 0.06)); // the player's low spirit never buys extra mercy // spirit: high = rarely quits, low = quits while still healthy
   const yieldAt = (hum ? TUNING.yieldAtPlayer : TUNING.yieldAt)[self.spec.personality] * sm;
   const yc = (hum ? TUNING.yieldChancePlayer : TUNING.yieldChance) * sm;
   if (torsoFrac < yieldAt && r() < yc) return { kind: 'yield' };
