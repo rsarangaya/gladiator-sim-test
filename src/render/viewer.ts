@@ -430,7 +430,29 @@ export class Viewer {
       this.mesh(c, x, y, r, 0.75);
     }
     this.nets = this.nets.filter((n) => now - n.t0 < 20);
-    for (const i of [0, 1] as const) if (now < this.fs[i].snareUntil) this.mesh(c, this.pos(i), FLOOR - 62, 52, 0.6);
+    for (const i of [0, 1] as const) if (now < this.fs[i].snareUntil) this.drape(c, this.pos(i), FLOOR, now);
+  }
+
+  /** A net draped over a snared fighter: a bell-curve shaped mound of rope weave with weighted hem. */
+  private drape(c: CanvasRenderingContext2D, x: number, floor: number, now: number) {
+    const H = 140, S = 48, W = 104, bob = Math.sin(now * 0.35) * 1.5;
+    const top = (dx: number) => floor - 4 - (H + bob) * Math.exp(-((dx / S) ** 2));
+    c.save(); c.translate(x, 0);
+    const path = () => { c.beginPath(); c.moveTo(-W, floor - 4); for (let dx = -W; dx <= W; dx += 4) c.lineTo(dx, top(dx)); c.lineTo(W, floor - 4); c.closePath(); };
+    path(); c.fillStyle = 'rgba(40,30,18,.28)'; c.fill();
+    c.save(); path(); c.clip();
+    c.strokeStyle = '#e6d9b4'; c.lineWidth = 1.6; c.beginPath();
+    const st = 13;
+    for (let k = -14; k <= 14; k++) { c.moveTo(k * st - 200, floor - 160); c.lineTo(k * st + 200 * 0 + 60, floor + 20); c.moveTo(k * st + 120, floor - 160); c.lineTo(k * st - 140, floor + 20); }
+    c.stroke();
+    c.fillStyle = '#b89a62';
+    for (let gx = -8; gx <= 8; gx++) for (let gy = 0; gy < 12; gy++) { if ((gx + gy) & 1) continue; const kx = gx * 9.5, ky = floor - 8 - gy * 12; if (ky > top(kx) + 2) { c.beginPath(); c.arc(kx, ky, 1.8, 0, 7); c.fill(); } }
+    c.restore();
+    c.strokeStyle = '#8a6a3a'; c.lineWidth = 3; c.beginPath(); for (let dx = -W; dx <= W; dx += 4) { const y = top(dx); dx === -W ? c.moveTo(dx, y) : c.lineTo(dx, y); } c.stroke();
+    c.strokeStyle = '#d8c28a'; c.lineWidth = 1.2; c.stroke();
+    c.fillStyle = '#4a4f55'; c.strokeStyle = '#1d1511'; c.lineWidth = 1;
+    for (let dx = -W; dx <= W; dx += 20) { c.beginPath(); c.arc(dx, floor - 4 + Math.abs(Math.sin(dx)) * 2, 3.6, 0, 7); c.fill(); c.stroke(); }
+    c.restore();
   }
 
   /** A rope net: diamond weave with knots, a heavy rim and lead weights. */

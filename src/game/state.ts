@@ -166,7 +166,7 @@ function specFromBudget(classId: ClassId, budget: number, tier: number, name: st
 /** Free-mode enemy power follows the player's point total so the ladder scales with whatever you invest in. */
 export function makeEnemy(s: Save, rng: () => number, tutorial = false, pickScale = 1, pickIdx = 1): FighterSpec {
   const classId = CLASS_IDS[Math.floor(rng() * CLASS_IDS.length)];
-  const scale = tutorial ? 0.7 : Math.min(1.2, 0.82 + 0.01 * s.fights) * pickScale; // free-mode foes track your strength
+  const scale = tutorial ? 0.62 : Math.min(1.2, 0.82 + 0.01 * s.fights) * pickScale; // free-mode foes track your strength
   const name = `${NAMES[Math.floor(rng() * NAMES.length)]} the ${CLASSES[classId].label}`;
   return specFromBudget(classId, totalPoints(s) * scale * (s.oppMod ?? 1), Math.min(1, Math.floor(s.fights / 10)), name, undefined, tutorial ? 0 : Math.max(0, s.skills.length + pickIdx - 1));
 }
