@@ -21,6 +21,35 @@ const STYLES: Record<Style, [Partial<Pose>, Partial<Pose>]> = {
   punch:  [pose({ wU: -25, wL: -10, lean: 4, x: -3 }), pose({ wU: 80, wL: 88, lean: 14, x: 10, ...LUNGE })],
 };
 
+// Alternate wind-ups/strikes so consecutive attacks of the same kind do not look copy-pasted.
+const VARIANTS: Record<Style, [Partial<Pose>, Partial<Pose>][]> = {
+  thrust: [
+    STYLES.thrust as [Partial<Pose>, Partial<Pose>],
+    [pose({ wU: 10, wL: 30, lean: 4, x: -5, drop: 8, sU: 20, sL: 50 }), pose({ wU: 64, wL: 72, lean: 18, x: 16, drop: 12, ...LUNGE })],
+    [pose({ wU: -10, wL: 10, lean: 0, x: -2, sU: 15, sL: 45 }), pose({ wU: 90, wL: 92, lean: 10, x: 9, drop: 3, fU: 34, fL: 8, bU: -26, bL: -6 })],
+  ],
+  slash: [
+    STYLES.slash as [Partial<Pose>, Partial<Pose>],
+    [pose({ wU: 105, wL: 125, lean: -6, x: -6, head: 4 }), pose({ wU: 38, wL: 56, lean: 20, x: 12, drop: 3, ...LUNGE })],
+    [pose({ wU: 10, wL: 40, lean: 6, x: -3 }), pose({ wU: 120, wL: 130, lean: 12, x: 10, drop: 5, ...LUNGE })],
+  ],
+  swing: [
+    STYLES.swing as [Partial<Pose>, Partial<Pose>],
+    [pose({ wU: 120, wL: 190, lean: -14, x: -8, drop: 4 }), pose({ wU: 30, wL: 40, lean: 26, x: 14, drop: 10, ...LUNGE })],
+  ],
+  dual: [
+    // right blade strikes, left guards
+    [pose({ wU: 125, wL: 150, sU: 30, sL: 70, lean: 0, x: -3 }), pose({ wU: 75, wL: 88, sU: 20, sL: 60, lean: 14, x: 12, drop: 5, ...LUNGE })],
+    // left blade strikes, right guards
+    [pose({ sU: 130, sL: 155, wU: 30, wL: 70, lean: 0, x: -3 }), pose({ sU: 78, sL: 90, wU: 22, wL: 60, lean: 14, x: 12, drop: 5, ...LUNGE })],
+    // double cross-cut
+    [pose({ wU: 140, wL: 165, sU: 110, sL: 150, lean: -4, x: -5 }), pose({ wU: 60, wL: 80, sU: 80, sL: 96, lean: 18, x: 14, drop: 6, ...LUNGE })],
+    // quick low jabs
+    [pose({ wU: 10, wL: 30, sU: 10, sL: 30, lean: 4, x: -3, drop: 4 }), pose({ wU: 70, wL: 80, sU: 50, sL: 78, lean: 12, x: 10, drop: 8, ...LUNGE })],
+  ],
+  punch: [STYLES.punch as [Partial<Pose>, Partial<Pose>], [pose({ wU: 30, wL: 120, lean: 2, x: -4 }), pose({ wU: 75, wL: 60, lean: 14, x: 10, ...LUNGE })]],
+};
+
 function styleFor(w: WeaponDef, id: ActionId): Style {
   if (id === 'heavy' || id === 'cleave') return 'swing';
   if (id === 'hook') return 'slash';
@@ -46,6 +75,7 @@ export interface AnimIn {
   yielded: boolean;
   victory: boolean;
   tiers: { legL: string; legR: string };
+  seq?: number;                // how many attacks this fighter has started (picks a variant)
 }
 
 const walk = (phase: number, dir: 1 | -1): Partial<Pose> => {
@@ -109,13 +139,15 @@ export function poseFor(a: AnimIn): Pose {
         p = swingMix(W, S, age, su, ac, rc); break;
       }
       case 'whirl': {
+        // arms flung wide, the body drives the turn: a short sweeping arc instead of spinning limbs
         const tot = su + ac + rc, f = clamp01(age / tot);
-        const spin = f * 360 * 1.25;
-        p = pose({ lean: 10, drop: 4, wU: 90 + spin * 0.9, wL: 95 + spin, sU: 270 + spin * 0.9, sL: 270 + spin, x: 4 });
+        const sweep = Math.sin(f * Math.PI);
+        p = pose({ lean: 8 + 6 * sweep, drop: 3 + 4 * sweep, x: 4, head: -6 * sweep, wU: 70 + 70 * sweep, wL: 80 + 70 * sweep, sU: 110 - 40 * sweep, sL: 120 - 30 * sweep, fU: 26, fL: 8, bU: -26, bL: -8 });
         break;
       }
       default: {
-        const [W, S] = STYLES[styleFor(a.weapon, act.id)];
+        const st = styleFor(a.weapon, act.id), vs = VARIANTS[st];
+        const [W, S] = vs[((a.seq ?? 0) % vs.length + vs.length) % vs.length];
         const Wp = pose(W), Sp = pose(S);
         p = swingMix(Wp, Sp, age, su, ac, rc);
       }

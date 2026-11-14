@@ -56,7 +56,10 @@ export const TUNING = {
   hitBase: 0.8,
   hitMin: 0.2,
   hitMax: 0.95,
-  yieldAt: { aggressive: 0.14, balanced: 0.16, defensive: 0.2 },
+  yieldAt: { aggressive: 0.05, balanced: 0.07, defensive: 0.1 },
+  yieldAtPlayer: { aggressive: 0.14, balanced: 0.16, defensive: 0.2 },
+  yieldChancePlayer: 0.25,
+  yieldChance: 0.03,       // per decision once below the threshold (low = fights end in death more often)
   staminaRegen: 0.2,       // per tick base
   staminaRegenEnd: 0.008,  // per tick per Endurance point
   damageScale: 0.42,       // global pacing knob: lower = longer fights

@@ -109,8 +109,9 @@ export const YARD_SPOTS: Spot[] = [
   { id: 'coliseum', x: 250, y: 100, w: 460, h: 240 },
   { id: 'shop', x: 12, y: 200, w: 262, h: 260 },
   { id: 'training', x: 686, y: 200, w: 262, h: 260 },
-  { id: 'rest', x: 290, y: 392, w: 128, h: 120 },
-  { id: 'skills', x: 546, y: 392, w: 128, h: 120 },
+  { id: 'rest', x: 284, y: 395, w: 116, h: 120 },
+  { id: 'skills', x: 586, y: 395, w: 116, h: 120 },
+  { id: 'gear', x: 428, y: 310, w: 110, h: 215 },
 ];
 export function drawYard(c: CanvasRenderingContext2D, t: number, hover: string | null, badges: Record<string, string | undefined> = {}) {
   const sky = c.createLinearGradient(0, 0, 0, 330);
@@ -172,11 +173,11 @@ export function drawYard(c: CanvasRenderingContext2D, t: number, hover: string |
 
   // bedroll tent and the scroll lectern (rest and skills)
   const rl = hover === 'rest', kl = hover === 'skills';
-  c.save(); c.translate(354, 486 + (rl ? -3 : 0));
+  c.save(); c.translate(340, 486 + (rl ? -3 : 0)); c.scale(0.85, 0.85);
   c.fillStyle = rl ? '#d6a672' : '#b8895a'; c.strokeStyle = '#1d1511'; c.lineWidth = 3; c.beginPath(); c.moveTo(-58, 0); c.lineTo(0, -92); c.lineTo(58, 0); c.closePath(); c.fill(); c.stroke();
   c.fillStyle = '#2a1a0c'; c.beginPath(); c.moveTo(0, -92); c.lineTo(-18, 0); c.lineTo(18, 0); c.closePath(); c.fill();
   c.strokeStyle = '#6b4a2e'; c.beginPath(); c.moveTo(0, -92); c.lineTo(0, -108); c.stroke(); c.restore();
-  c.save(); c.translate(610, 486 + (kl ? -3 : 0));
+  c.save(); c.translate(632, 486 + (kl ? -3 : 0));
   c.fillStyle = '#6b4a2e'; c.strokeStyle = '#1d1511'; c.lineWidth = 3; c.fillRect(-6, -60, 12, 60); c.strokeRect(-6, -60, 12, 60);
   c.beginPath(); c.moveTo(-40, -58); c.lineTo(40, -58); c.lineTo(30, -86); c.lineTo(-30, -86); c.closePath(); c.fillStyle = kl ? '#a8744a' : '#8a5a30'; c.fill(); c.stroke();
   c.fillStyle = '#efe3c4'; c.beginPath(); c.moveTo(-26, -84); c.lineTo(0, -80); c.lineTo(26, -84); c.lineTo(22, -62); c.lineTo(0, -58); c.lineTo(-22, -62); c.closePath(); c.fill(); c.stroke();
@@ -189,9 +190,9 @@ export function drawYard(c: CanvasRenderingContext2D, t: number, hover: string |
   sign(c, 'COLISEUM', 480, 96, hover === 'coliseum', 'coliseum');
   sign(c, 'SHOP', 150, 484, sl, 'shop');
   sign(c, 'TRAINING', 818, 484, tl, 'ground');
-  sign(c, 'REST', 354, 512, rl, 'tent');
-  sign(c, 'SKILLS', 610, 512, kl, 'scroll');
-  for (const [id, x, y] of [['coliseum', 640, 110], ['skills', 650, 410], ['shop', 258, 232], ['training', 912, 232], ['rest', 410, 410]] as [string, number, number][]) if (badges[id]) badge(c, x, y, badges[id]!, t);
+  sign(c, 'REST', 340, 512, rl, 'tent');
+  sign(c, 'SKILLS', 632, 512, kl, 'scroll');
+  for (const [id, x, y] of [['coliseum', 640, 110], ['skills', 672, 420], ['shop', 258, 232], ['training', 912, 232], ['rest', 384, 430]] as [string, number, number][]) if (badges[id]) badge(c, x, y, badges[id]!, t);
 
   // drifting dust in the evening light
   for (let i = 0; i < 18; i++) { const x = ((i * 137 + t * 14) % (SW + 40)) - 20, y = 360 + ((i * 71) % 150) + Math.sin(t + i) * 6; c.fillStyle = 'rgba(255,225,170,.18)'; c.beginPath(); c.arc(x, y, 1.6, 0, 7); c.fill(); }
@@ -343,7 +344,7 @@ export function trainerSpec(): FighterSpec {
   };
 }
 export const TRAINER_POSE: Pose = pose({ lean: 0, wU: 52, wL: 128, sU: 52, sL: 128, fU: 12, fL: 3, bU: -12, bL: -3 });
-export const SHOPKEEPER_LOOK = (spec: FighterSpec): Look => ({ ...lookFor(spec, 0), skin: '#d9a67a', hair: '#8a8a8a', main: '#6b4a2e', trim: '#c9a23a', metal: '#8a8f96', cloth: '#c4513a', helm: 'retiarius' });
+export const SHOPKEEPER_LOOK = (spec: FighterSpec): Look => ({ ...lookFor(spec, 0), skin: '#d9a67a', hair: '#8a8a8a', main: '#6b4a2e', trim: '#c9a23a', metal: '#8a8f96', cloth: '#c4513a', helm: 'brute' });
 export function shopkeeperSpec(): FighterSpec {
   return { ...trainerSpec(), name: 'Shopkeeper', classId: 'retiarius', stats: { ...CLASSES.retiarius.base } };
 }

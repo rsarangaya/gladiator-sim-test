@@ -81,12 +81,19 @@
   .goods { display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:8px; }
   .good { display:flex; align-items:center; gap:12px; padding:10px 12px; border-radius:10px; background:linear-gradient(180deg,#2e241b,#271e16); border:1px solid #4a3b2c; }
   .good .gd { flex:1; } .good button { min-width:70px; }
+  .equip { display:grid; grid-template-columns:260px 1fr; gap:12px; align-items:start; }
+  .equip .paper { display:flex; flex-direction:column; align-items:center; gap:6px; padding:10px; border-radius:12px; background:#241b14; border:1px solid #4a3b2c; }
+  .equip .paper canvas { border-radius:10px; }
+  .slots { display:flex; flex-direction:column; gap:8px; } .slots h3 { margin:6px 0 0; font-size:13px; letter-spacing:.1em; text-transform:uppercase; color:#cdbd9f; }
+  .slot { display:flex; align-items:center; gap:12px; padding:8px 12px; border-radius:10px; background:linear-gradient(180deg,#2e241b,#271e16); border:1px solid #4a3b2c; }
+  .slot .gd { flex:1; min-width:0; } .slot .cond { display:flex; align-items:center; gap:8px; width:42%; max-width:220px; } .slot .cond .meter { flex:1; height:10px; background:#120e0a; border-radius:5px; overflow:hidden; } .slot .cond .meter i { display:block; height:100%; } .slot .pct { width:52px; text-align:right; font-size:13px; }
+  .perk { color:#9fd18a; font-size:12px; }
   .foes { display:flex; flex-direction:column; gap:8px; }
   .foe { display:flex; align-items:center; gap:12px; padding:8px 12px; border-radius:10px; background:#241b14; border:2px solid #3a2e22; cursor:pointer; flex-wrap:wrap; }
   .foe.sel { border-color:var(--acc); box-shadow:0 0 14px rgba(217,164,65,.25); }
   .foe .pv { width:56px; height:76px; border-radius:8px; flex:none; } .foe .fd { flex:1; min-width:200px; } .foe .gold { color:#d9c25a; font-size:13px; }
   .odds .bar { height:8px; background:#120e0a; border-radius:4px; overflow:hidden; margin-top:4px; } .odds .bar i { display:block; height:100%; }
-  @media (max-width: 640px) { .chip { font-size:16px; padding:4px 10px; } .goods { grid-template-columns:1fr; } .topbar { padding:6px 8px; } }
+  @media (max-width: 640px) { .icons { justify-content:center; } .icons .sp { display:none; } .equip { grid-template-columns:1fr; } .slot .cond { width:100%; max-width:none; flex-basis:100%; } .slot { flex-wrap:wrap; } .chip { font-size:16px; padding:4px 10px; } .goods { grid-template-columns:1fr; } .topbar { padding:6px 8px; } }
 </style>
 </head>
 <body>

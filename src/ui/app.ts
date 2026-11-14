@@ -153,6 +153,7 @@ function hub() {
     <div class="msg">${msg}</div>
     <div class="icons">
       <button class="ibtn" id="rest" title="Rest: heals bruises and wounds, cures fever (1 energy, ${REST_GOLD}g)">${iconHtml('tent', 22)}<small>Rest</small></button>
+      <button class="ibtn" id="gear" title="Equipment: weapon, shield, armor and their condition">${iconHtml('armor', 22)}<small>Gear</small></button>
       <button class="ibtn ${s.skillPoints > 0 ? 'glow' : ''}" id="skills" title="Learn skills">${iconHtml('scroll', 22)}<small>Skills</small></button>
       <button class="ibtn" id="wait" title="Skip to the next day. Costs gold, and rivals keep growing stronger.">${iconHtml('hourglass', 22)}<small>${waitCost(s)}g</small></button>
       <span class="sp"></span>
@@ -170,17 +171,19 @@ function hub() {
     training: s.energy > 0 && s.bedridden === 0 ? String(s.energy) : undefined,
   };
   scene.spots = YARD_SPOTS;
-  scene.draw = (c, t, hover) => { drawYard(c, t, hover, badges); drawCharacter(c, spec, 480, 526, 1.9, { t, injuries: s.injuries, prosthetics: s.prosthetics }); };
+  scene.draw = (c, t, hover) => { drawYard(c, t, hover, badges); drawCharacter(c, spec, 480, 522, 1.55, { t, injuries: s.injuries, prosthetics: s.prosthetics }); };
   scene.onClick = (id) => {
     if (id === 'coliseum') arena();
     else if (id === 'shop') { shopMsg = ''; shop(); }
     else if (id === 'training') { msg = ''; training(); }
     else if (id === 'rest') { msg = rest(s); commit(); hub(); }
     else if (id === 'skills') { msg = ''; skillsScreen(); }
+    else if (id === 'gear') equipment();
   };
   scene.start();
   on('rest', () => { msg = rest(s); commit(); hub(); });
   on('skills', () => { msg = ''; skillsScreen(); });
+  on('gear', () => equipment());
   on('wait', () => { msg = waitDay(s); commit(); hub(); });
   on('menu', menu); on('help', showHelp);
   on('retire', () => { if (confirm('Retire this gladiator and record the score?')) { retire(s); commit(); hub(); } });
@@ -241,6 +244,35 @@ function startExercise(stat: StatKey) {
 
 // ---- shop ------------------------------------------------------------------------------------------
 let shopMsg = '';
+
+// ---- equipment: what you carry, how worn it is --------------------------------------------------
+function equipment(back: () => void = hub) {
+  const s = save!, spec = playerSpec(s), g = s.gear;
+  const bar = (v: number) => `<div class="meter"><i style="width:${Math.max(0, v)}%;background:${v < 25 ? '#c4513a' : v < 50 ? '#d9a441' : '#6aa65a'}"></i></div><span class="pct">${v <= 0 ? 'BROKEN' : Math.round(v) + '%'}</span>`;
+  const slot = (ic: IconKind, title: string, sub: string, v: number | null, extra = '') =>
+    `<div class="slot">${iconHtml(ic, 40, 'big')}<div class="gd"><b>${title}</b><div class="dim">${sub}</div>${extra}</div>${v === null ? '' : `<div class="cond">${bar(v)}</div>`}</div>`;
+  const w = spec.weapon;
+  const perks = (list: string[]) => list.length ? `<div class="perk">${list.map((x) => SKILLS[x].name).join(', ')}</div>` : '';
+  const zones = ZONES.map((z) => slot('armor', ZONE_LABEL[z], `Armor ${spec.armor[z]}${s.injuries[z] ? ' · ' + s.injuries[z] : ''}${s.prosthetics[z] ? ' · prosthetic' : ''}`, g.armor[z])).join('');
+  html(`<div class="town">${topBar(s)}
+    <div class="equip">
+      <div class="paper"><canvas id="eqpv" width="220" height="330" style="width:220px;height:330px"></canvas><div class="dim" style="text-align:center">${s.name} · Lv ${level(s)} ${CLASSES[s.classId].label}</div></div>
+      <div class="slots">
+        <h3>Weapon</h3>
+        ${slot('sword', `${RARITIES[s.weaponTier]} ${w.name}`, `Damage ${Math.round(w.dmg)} · Reach ${w.reach.toFixed(1)} · Speed ${w.speed.toFixed(2)}${s.loot?.weapon ? ' · ' + s.loot.weapon : ''}`, g.weapon, perks(s.perks.weapon))}
+        ${spec.shield ? slot('shield', spec.shield.name, `Blocks ${Math.round(spec.shield.block * 100)}% · Absorbs ${Math.round(spec.shield.absorb * 100)}%`, g.shield) : ''}
+        <h3>Armor · ${RARITIES[s.armorTier]}${s.loot?.armor ? ' · ' + s.loot.armor : ''}</h3>
+        ${perks(s.perks.armor)}${zones}
+      </div>
+    </div>
+    <div class="icons"><button class="ibtn" id="repairall">${iconHtml('hammer', 22)}<small>Repair all · ${repairCost(s, 'all')}g (shop)</small></button><button class="ibtn" id="back">${iconHtml('ground', 22)}<small>Back</small></button></div></div>`);
+  fillIcons();
+  const cv = document.getElementById('eqpv') as HTMLCanvasElement;
+  drawPortrait(cv, spec, { injuries: s.injuries, prosthetics: s.prosthetics });
+  on('back', back);
+  on('repairall', () => { shopMsg = ''; shop(); });
+}
+
 function shop() {
   const s = save!;
   const tierPrice = (kind: 'weapon' | 'armor') => { const t = kind === 'weapon' ? s.weaponTier : s.armorTier; return t >= 2 ? null : TIER_COSTS[kind][t]; };
@@ -261,9 +293,10 @@ function shop() {
     <div class="stagewrap" id="stage"></div>
     <div class="goods">${items.join('')}</div>
     ${gearPanel(s)}
-    <div class="icons"><button class="ibtn" id="back">${iconHtml('shop', 22)}<small>Leave the shop</small></button></div></div>`);
+    <div class="icons"><button class="ibtn" id="gear">${iconHtml('armor', 22)}<small>My equipment</small></button><button class="ibtn" id="back">${iconHtml('shop', 22)}<small>Leave the shop</small></button></div></div>`);
   document.getElementById('stage')!.appendChild(scene.el);
   fillIcons();
+  on('gear', () => equipment(shop));
   const keeper = shopkeeperSpec();
   const line = /^Bought/.test(shopMsg) ? 'A fine choice! May it serve you well.' : /^Repaired/.test(shopMsg) ? 'Good as new, friend.' : /nothing better|best/i.test(shopMsg) ? 'That is the finest I have, I swear it.'
     : /cost|Need|wants/i.test(shopMsg) ? 'Come back when your purse is heavier.' : shopMsg || ['Welcome, gladiator! Steel and leather at fair prices.', 'Looking to survive another day?', 'Mind the sharp end.'][s.day % 3];
@@ -271,11 +304,11 @@ function shop() {
   scene.spots = [];
   scene.draw = (c, t) => {
     const talking = performance.now() - born < 2200;
-    drawShopScene(c, t, () => drawCharacter(c, keeper, 640, 470, 2, {
+    drawShopScene(c, t, () => drawCharacter(c, keeper, 480, 560, 3, {
       t, armed: false, look: SHOPKEEPER_LOOK(keeper),
-      pose: pose({ lean: 2, wU: 56 + (talking ? Math.sin(t * 7) * 14 : 0), wL: 96, sU: 50, sL: 100, fU: 10, fL: 2, bU: -10, bL: -2, head: talking ? Math.sin(t * 5) * 3 : 0 }),
+      pose: pose({ lean: 0, wU: talking ? 125 + Math.sin(t * 6) * 18 : 38, wL: talking ? 150 : 70, sU: 38, sL: 70, fU: 8, fL: 2, bU: -8, bL: -2, head: talking ? Math.sin(t * 5) * 3 : 0 }),
     }));
-    speech(c, line, 340, 300, 300);
+    speech(c, line, 540, 170, 300);
   };
   scene.start();
   const buy = (fn: () => string) => () => { shopMsg = fn(); commit(); shop(); };

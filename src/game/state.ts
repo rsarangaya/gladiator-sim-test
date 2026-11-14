@@ -138,7 +138,7 @@ export function playerSpec(s: Save): FighterSpec {
   const armor = { ...c.armor };
   for (const z of ZONES) armor[z] = g.armor[z] <= 0 ? 0 : (armor[z] + 6 * s.armorTier) * wearMod(g.armor[z]);
   return {
-    name: s.name, classId: s.classId, level: level(s), stats: stats(s), weapon: w, shield, armor,
+    name: s.name, human: true, classId: s.classId, level: level(s), stats: stats(s), weapon: w, shield, armor,
     personality: c.personality, carriedHpLoss: carriedLoss(s),
     skills: [...s.skills, ...(g.weapon > 0 ? s.perks.weapon : []), ...s.perks.armor],
   };

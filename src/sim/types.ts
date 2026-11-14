@@ -36,6 +36,7 @@ export interface FighterSpec {
   /** zone penalties carried in from previous fights (permanent injuries) */
   carriedHpLoss?: Partial<Record<Zone, number>>;
   /** an infamous challenger: drawn bigger, with a blood-red name and a darkened sky */
+  human?: boolean;  // the player's fighter (yields earlier than opponents)
   boss?: boolean;
   /** learned skills and gear perk ids; compiled into combat modifiers (see data/skills.ts) */
   skills?: string[];

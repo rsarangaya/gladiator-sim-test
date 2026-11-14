@@ -15,7 +15,7 @@ interface FS {
   act: ActionDef | null; start: number; hitAt: number; stunUntil: number; snareUntil: number; bleedUntil: number;
   armed: boolean; deadAt: number; yieldAt: number; trail: { x: number; y: number; t: number }[]; look: Look; dur: Dur;
   marks: Mark[]; bloody: boolean; lastCut: Zone; severed: Partial<Record<Zone, boolean>>; slowUntil: number;
-  sm?: Pose; moveUntil: number; moveDir: 1 | -1;   // smoothed pose, and a short walk hold so steps do not flicker to idle
+  sm?: Pose; moveUntil: number; moveDir: 1 | -1; seq: number;   // smoothed pose, and a short walk hold so steps do not flicker to idle
 }
 interface Part { x: number; y: number; vx: number; vy: number; life: number; max: number; kind: 'dust' | 'spark' | 'burst' | 'drop' | 'blood' | 'gore'; size: number; color: string }
 interface Fx { life: number; x: number; y: number; text: string; color: string }
@@ -82,7 +82,7 @@ export class Viewer {
     this.tick = 0; this.acc = 0; this.evIdx = 0; this.hold = 0; this.shake = 0; this.excite = 0; this.ended = false; this.after = 0;
     this.parts = []; this.fx = []; this.banners = [{ life: 1.6, text: 'FIGHT!', color: '#ffd24a' }]; this.props = []; this.nets = []; this.stains = []; this.gibs = [];
     this.flash = [0, 0];
-    const mk = (i: 0 | 1): FS => ({ act: null, start: -99, hitAt: -99, stunUntil: -1, snareUntil: -1, bleedUntil: -1, armed: true, deadAt: -1, yieldAt: -1, trail: [], look: lookFor(specs[i], i), dur: { su: 1, ac: 1, rc: 1 }, marks: carriedMarks(specs[i]), bloody: false, lastCut: 'torso', severed: {}, slowUntil: -1, moveUntil: -1, moveDir: 1 });
+    const mk = (i: 0 | 1): FS => ({ act: null, start: -99, hitAt: -99, stunUntil: -1, snareUntil: -1, bleedUntil: -1, armed: true, deadAt: -1, yieldAt: -1, trail: [], look: lookFor(specs[i], i), dur: { su: 1, ac: 1, rc: 1 }, marks: carriedMarks(specs[i]), bloody: false, lastCut: 'torso', severed: {}, slowUntil: -1, moveUntil: -1, moveDir: 1, seq: 0 });
     this.fs = [mk(0), mk(1)];
     const start = (i: 0 | 1) => {
       const o = { ...r.maxHp[i] };
@@ -174,7 +174,7 @@ export class Viewer {
       case 'start': {
         const def = ACTIONS[e.action!];
         const m = def.weaponSpeed ? this.specs[a].weapon.speed : 1;
-        this.fs[a].act = def; this.fs[a].start = now;
+        this.fs[a].act = def; this.fs[a].start = now; if (def.attack) this.fs[a].seq++;
         this.fs[a].dur = { su: Math.max(1, Math.round(def.startup * m)), ac: def.active, rc: Math.round(def.recovery * m) };
         if (['advance', 'retreat', 'dodge'].includes(def.id) && !this.fast()) this.dust(a, def.id === 'dodge' ? 5 : 2);
         if (def.id === 'advance' || def.id === 'retreat') { this.fs[a].moveUntil = now + 6; this.fs[a].moveDir = def.id === 'advance' ? 1 : -1; }
@@ -372,7 +372,7 @@ export class Viewer {
     const target = poseFor({
       act: holdWalk ? ACTIONS[f.moveDir > 0 ? 'advance' : 'retreat'] : act, age, dur: f.dur, weapon: f.armed ? spec.weapon : { ...spec.weapon, name: 'Bare Hands' }, phase,
       hitAge: now - f.hitAt, stunned: now < f.stunUntil, t: this.time + i, fallAge, yielded: f.yieldAt >= 0 && !dead,
-      victory: winner && !dead && f.yieldAt < 0, tiers: this.tiers[i],
+      victory: winner && !dead && f.yieldAt < 0, tiers: this.tiers[i], seq: f.seq,
     });
     // blend toward the target pose in real time: no snapping between actions (fast during the strike itself)
     const striking = !!act && act.attack && age >= f.dur.su - 1 && age < f.dur.su + Math.max(2, f.dur.ac) + 2;

@@ -41,13 +41,15 @@ export function decide(self: Runtime, opp: Runtime, r: Rng): Decision {
   const torsoFrac = self.hp.torso / self.max.torso;
 
   // --- yield ---------------------------------------------------------------
-  const yieldAt = TUNING.yieldAt[self.spec.personality];
-  if (torsoFrac < yieldAt && r() < 0.25) return { kind: 'yield' };
-  if (legsDown(self) && r() < 0.25) return { kind: 'yield' };
+  const hum = !!self.spec.human; // the player's gladiator knows when to quit; opponents fight on much longer
+  const yieldAt = (hum ? TUNING.yieldAtPlayer : TUNING.yieldAt)[self.spec.personality];
+  const yc = hum ? TUNING.yieldChancePlayer : TUNING.yieldChance;
+  if (torsoFrac < yieldAt && r() < yc) return { kind: 'yield' };
+  if (legsDown(self) && r() < yc) return { kind: 'yield' };
   // yield when one more big hit could be fatal (scales with the opponent's damage, so it holds at every level)
   const burst = opp.weapon.dmg * (0.5 + opp.spec.stats.str / 100) * TUNING.damageScale * 2.2;
   const danger = self.hp.torso < burst * 1.2 || self.hp.head < burst * 1.5;
-  if (danger && r() < (self.spec.personality === 'aggressive' ? 0.18 : 0.2)) return { kind: 'yield' };
+  if (danger && r() < (hum ? (self.spec.personality === 'aggressive' ? 0.18 : 0.2) : yc * (self.spec.personality === 'aggressive' ? 0.3 : 0.5))) return { kind: 'yield' };
 
   // --- threat read -----------------------------------------------------------
   let threat = false;
