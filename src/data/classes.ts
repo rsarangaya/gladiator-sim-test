@@ -1,12 +1,12 @@
 import type { ArmorSet, ClassId, FighterSpec, Personality, ShieldDef, Stats, WeaponDef } from '../sim/types';
 
 export const WEAPONS: Record<string, WeaponDef> = {
-  gladius:    { name: 'Gladius',         dmg: 15.5, reach: 6,   speed: 1.0,  edged: true },
+  gladius:    { name: 'Gladius',         dmg: 14.8, reach: 6,   speed: 1.0,  edged: true },
   scimitar:   { name: 'Hooked Scimitar', dmg: 17.5, reach: 5.5, speed: 0.95, edged: true },
-  spear:      { name: 'Long Spear',      dmg: 15, reach: 10,  speed: 1.1,  edged: true },
-  trident:    { name: 'Trident',         dmg: 18.6, reach: 9,   speed: 0.95, edged: true },
+  spear:      { name: 'Long Spear',      dmg: 14.3, reach: 10,  speed: 1.1,  edged: true },
+  trident:    { name: 'Trident',         dmg: 17.6, reach: 9,   speed: 0.95, edged: true },
   twinBlades: { name: 'Twin Blades',     dmg: 12.5,  reach: 5,   speed: 0.8,  edged: true, dual: true },
-  greataxe:   { name: 'Great Axe',       dmg: 16.6, reach: 7.5, speed: 1.5,  edged: true, twoHanded: true },
+  greataxe:   { name: 'Great Axe',       dmg: 15, reach: 7.5, speed: 1.5,  edged: true, twoHanded: true },
   fists:      { name: 'Bare Hands',      dmg: 3,  reach: 3.6,  speed: 0.9,  edged: false },
 };
 

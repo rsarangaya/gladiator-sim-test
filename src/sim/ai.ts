@@ -76,9 +76,16 @@ export function decide(self: Runtime, opp: Runtime, r: Rng): Decision {
   }
 
   // distance control: long weapons keep their range, everyone backs off when tired
-  const tooClose = reach >= 8 && dist < reach * 0.55;
   const atEdge = self.x < 5 || self.x > TUNING.arenaWidth - 5;
-  if (tooClose && !atEdge) w.retreat = 10 * P.def + 4;
+  // Reach: a longer weapon is an advantage only if you use it. Hold the gap, poke at maximum range, and back off when closed on.
+  const oppReach = opp.weapon.reach + opp.mods.reach;
+  const adv = reach - oppReach;
+  if (adv >= 1.2 && !atEdge) {
+    if (dist < oppReach + 0.6) { w.retreat = 30; w.heavy = 0; if (w.light) w.light *= 0.6; }
+    else if (inReach) { if (w.light) w.light *= 1.3; if (w.heavy) w.heavy *= 0.5; }
+  } else if (reach >= 8 && dist < reach * 0.55 && !atEdge) w.retreat = 10 * P.def + 4;
+  // a short weapon must close the distance fast, because trading at long range only helps the other side
+  if (adv <= -1.2 && !inReach) w.advance = 60 * P.aggr;
   if (stamFrac < 0.25 && !atEdge) w.retreat = (w.retreat ?? 0) + 6;
 
   if (threat) {

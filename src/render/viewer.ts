@@ -4,7 +4,7 @@ import { CLASSES } from '../data/classes';
 import { ZONES, type FightEvent, type FightResult, type FighterSpec, type WeaponDef, type Zone, type ZoneTier } from '../sim/types';
 import { poseFor, type Dur } from './anim';
 import { Commentator } from './commentary';
-import { drawFighter, drawWeapon, lookFor, type Look, type Mark, type Tip } from './rig';
+import { drawFighter, drawWeapon, lookFor, type Look, type Mark, type Pose, type Tip } from './rig';
 import { FLOOR, H, Stage, W } from './stage';
 
 const PX = 21;
@@ -15,6 +15,7 @@ interface FS {
   act: ActionDef | null; start: number; hitAt: number; stunUntil: number; snareUntil: number; bleedUntil: number;
   armed: boolean; deadAt: number; yieldAt: number; trail: { x: number; y: number; t: number }[]; look: Look; dur: Dur;
   marks: Mark[]; bloody: boolean; lastCut: Zone; severed: Partial<Record<Zone, boolean>>; slowUntil: number;
+  sm?: Pose; moveUntil: number; moveDir: 1 | -1;   // smoothed pose, and a short walk hold so steps do not flicker to idle
 }
 interface Part { x: number; y: number; vx: number; vy: number; life: number; max: number; kind: 'dust' | 'spark' | 'burst' | 'drop' | 'blood' | 'gore'; size: number; color: string }
 interface Fx { life: number; x: number; y: number; text: string; color: string }
@@ -54,6 +55,7 @@ export class Viewer {
   private cam = { x: W / 2, z: 1 };
   private ended = false;
   private warned = false;
+  private frameDt = 0.016;
   private cm!: Commentator;
   private introDone = false;
   private dark = 0;   // storm intensity for infamous challengers
@@ -80,7 +82,7 @@ export class Viewer {
     this.tick = 0; this.acc = 0; this.evIdx = 0; this.hold = 0; this.shake = 0; this.excite = 0; this.ended = false; this.after = 0;
     this.parts = []; this.fx = []; this.banners = [{ life: 1.6, text: 'FIGHT!', color: '#ffd24a' }]; this.props = []; this.nets = []; this.stains = []; this.gibs = [];
     this.flash = [0, 0];
-    const mk = (i: 0 | 1): FS => ({ act: null, start: -99, hitAt: -99, stunUntil: -1, snareUntil: -1, bleedUntil: -1, armed: true, deadAt: -1, yieldAt: -1, trail: [], look: lookFor(specs[i], i), dur: { su: 1, ac: 1, rc: 1 }, marks: carriedMarks(specs[i]), bloody: false, lastCut: 'torso', severed: {}, slowUntil: -1 });
+    const mk = (i: 0 | 1): FS => ({ act: null, start: -99, hitAt: -99, stunUntil: -1, snareUntil: -1, bleedUntil: -1, armed: true, deadAt: -1, yieldAt: -1, trail: [], look: lookFor(specs[i], i), dur: { su: 1, ac: 1, rc: 1 }, marks: carriedMarks(specs[i]), bloody: false, lastCut: 'torso', severed: {}, slowUntil: -1, moveUntil: -1, moveDir: 1 });
     this.fs = [mk(0), mk(1)];
     const start = (i: 0 | 1) => {
       const o = { ...r.maxHp[i] };
@@ -100,7 +102,7 @@ export class Viewer {
   private loop(t: number) {
     requestAnimationFrame((n) => this.loop(n)); // schedule first so one bad frame cannot stop playback
     const dt = Math.min(0.08, (t - this.last) / 1000 || 0);
-    this.last = t; this.time += dt;
+    this.last = t; this.time += dt; this.frameDt = dt || 0.016;
     if (this.boss >= 0) { this.dark = Math.min(1, this.dark + dt * 0.7); if (this.dark > 0.9 && Math.random() < dt * 0.3) this.bolt = 1; } else this.dark = 0;
     this.bolt = Math.max(0, this.bolt - dt * 3);
     if (this.r) {
@@ -175,6 +177,7 @@ export class Viewer {
         this.fs[a].act = def; this.fs[a].start = now;
         this.fs[a].dur = { su: Math.max(1, Math.round(def.startup * m)), ac: def.active, rc: Math.round(def.recovery * m) };
         if (['advance', 'retreat', 'dodge'].includes(def.id) && !this.fast()) this.dust(a, def.id === 'dodge' ? 5 : 2);
+        if (def.id === 'advance' || def.id === 'retreat') { this.fs[a].moveUntil = now + 6; this.fs[a].moveDir = def.id === 'advance' ? 1 : -1; }
         if (e.action === 'net') this.nets.push({ i: a, t0: now, ok: null });
         break;
       }
@@ -314,8 +317,8 @@ export class Viewer {
     const sep = Math.abs(p0 - p1);
     const zt = clamp(640 / (sep + 260), 1.3, 1.75);
     const target = (p0 + p1) / 2;
-    this.cam.x += (target - this.cam.x) * 0.12; this.cam.z += (zt - this.cam.z) * 0.08;
-    const sx = this.shake > 0 ? (Math.random() - 0.5) * this.shake : 0, sy = this.shake > 0 ? (Math.random() - 0.5) * this.shake : 0;
+    this.cam.x += (target - this.cam.x) * (1 - Math.exp(-this.frameDt * 7)); this.cam.z += (zt - this.cam.z) * (1 - Math.exp(-this.frameDt * 5));
+    const sx = this.shake > 0 ? Math.sin(this.time * 71) * this.shake * 0.55 : 0, sy = this.shake > 0 ? Math.cos(this.time * 83) * this.shake * 0.55 : 0;
 
     c.save(); c.translate(sx, sy);
     this.stage.drawBack(c, this.cam.x, this.time, this.excite);
@@ -365,11 +368,17 @@ export class Viewer {
     const dead = f.deadAt >= 0, fallAge = dead ? now - f.deadAt : -1;
     const winner = this.ended && this.r.winner === i;
     const phase = (x / PX) * 1.5;
-    const pose = poseFor({
-      act, age, dur: f.dur, weapon: f.armed ? spec.weapon : { ...spec.weapon, name: 'Bare Hands' }, phase,
+    const holdWalk = !act && now < f.moveUntil; // keep the walk cycle between steps
+    const target = poseFor({
+      act: holdWalk ? ACTIONS[f.moveDir > 0 ? 'advance' : 'retreat'] : act, age, dur: f.dur, weapon: f.armed ? spec.weapon : { ...spec.weapon, name: 'Bare Hands' }, phase,
       hitAge: now - f.hitAt, stunned: now < f.stunUntil, t: this.time + i, fallAge, yielded: f.yieldAt >= 0 && !dead,
       victory: winner && !dead && f.yieldAt < 0, tiers: this.tiers[i],
     });
+    // blend toward the target pose in real time: no snapping between actions (fast during the strike itself)
+    const striking = !!act && act.attack && age >= f.dur.su - 1 && age < f.dur.su + Math.max(2, f.dur.ac) + 2;
+    const rate = (striking ? 40 : 13) * clamp(this.speed, 1, 4);
+    f.sm = f.sm ? smoothPose(f.sm, target, 1 - Math.exp(-rate * this.frameDt)) : target;
+    const pose = f.sm;
     const fall = dead ? clamp(fallAge / 10, 0, 1) : 0;
     c.save();
     const lane = i === 0 ? 14 : -14;
@@ -523,3 +532,10 @@ export class Viewer {
 
 const carriedMarks = (sp: FighterSpec): Mark[] =>
   ZONES.filter((z) => (sp.carriedHpLoss?.[z] ?? 0) > 0).map((z) => ({ zone: z, kind: 'bruise' as const, t: 0.5, o: 0, a: 0.3, s: 1.2 }));
+
+const POSE_KEYS = ['lean', 'head', 'x', 'drop', 'wU', 'wL', 'sU', 'sL', 'fU', 'fL', 'bU', 'bL'] as const;
+function smoothPose(a: Pose, b: Pose, k: number): Pose {
+  const o = { ...b };
+  for (const key of POSE_KEYS) o[key] = a[key] + (b[key] - a[key]) * k;
+  return o;
+}

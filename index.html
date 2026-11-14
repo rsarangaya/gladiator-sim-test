@@ -67,6 +67,26 @@
     .stat b { width:34px; }
     .skill button { min-width:70px; }
   }
+  .town { display:flex; flex-direction:column; gap:8px; }
+  .topbar { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:6px 12px; border-radius:10px; background:linear-gradient(180deg,#3a2a1c,#2a1f15); border:1px solid #5a4128; box-shadow:0 3px 10px rgba(0,0,0,.4); flex-wrap:wrap; }
+  .topbar .who b { font-size:17px; color:var(--acc); } .topbar .day { font-weight:700; letter-spacing:.08em; color:#e8dcc0; }
+  .topbar .res { display:flex; align-items:center; gap:6px; } .topbar .res b { font-size:17px; color:#ffe9a8; margin-right:8px; }
+  .bolts { display:inline-flex; gap:1px; } .ic { display:inline-flex; align-items:center; justify-content:center; } .ic.off { opacity:.25; filter:grayscale(1); } .ic.big { flex:none; }
+  .stagewrap { position:relative; border-radius:12px; overflow:hidden; }
+  .chips { display:flex; flex-wrap:wrap; gap:8px; justify-content:center; }
+  .chip { display:flex; align-items:center; gap:6px; padding:5px 12px; border-radius:999px; background:#2f241a; border:1px solid #5a4128; font-size:17px; }
+  .chip b { color:#ffe9a8; min-width:22px; text-align:center; } .chip .plus { padding:0 9px; min-height:0; line-height:24px; border-radius:999px; background:var(--acc); color:#1a1410; border-color:var(--acc); font-weight:800; }
+  .icons { display:flex; flex-wrap:wrap; gap:8px; align-items:center; } .icons .sp { flex:1; }
+  .ibtn { display:inline-flex; align-items:center; gap:6px; } .ibtn small { font-size:13px; color:#cdbd9f; }
+  .goods { display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:8px; }
+  .good { display:flex; align-items:center; gap:12px; padding:10px 12px; border-radius:10px; background:linear-gradient(180deg,#2e241b,#271e16); border:1px solid #4a3b2c; }
+  .good .gd { flex:1; } .good button { min-width:70px; }
+  .foes { display:flex; flex-direction:column; gap:8px; }
+  .foe { display:flex; align-items:center; gap:12px; padding:8px 12px; border-radius:10px; background:#241b14; border:2px solid #3a2e22; cursor:pointer; flex-wrap:wrap; }
+  .foe.sel { border-color:var(--acc); box-shadow:0 0 14px rgba(217,164,65,.25); }
+  .foe .pv { width:56px; height:76px; border-radius:8px; flex:none; } .foe .fd { flex:1; min-width:200px; } .foe .gold { color:#d9c25a; font-size:13px; }
+  .odds .bar { height:8px; background:#120e0a; border-radius:4px; overflow:hidden; margin-top:4px; } .odds .bar i { display:block; height:100%; }
+  @media (max-width: 640px) { .chip { font-size:16px; padding:4px 10px; } .goods { grid-template-columns:1fr; } .topbar { padding:6px 8px; } }
 </style>
 </head>
 <body>

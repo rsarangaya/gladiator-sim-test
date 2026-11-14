@@ -4,11 +4,18 @@ import {
   MAX_ENERGY, PROSTHETIC_COST, REST_GOLD, START_POINTS, STAT_KEYS, TIER_COSTS,
   actionRng, hireTrainer, trainerCost, buyProsthetic, buyTier, clearSave, level, loadGame, newGame, openBout, rest, runBout, saveGame,
   settleBout, spendPoint, stats, train, type Bout, type Difficulty, type Save, type Mode,
-  learnSkill, CAREER_SIZES, PRELIMS, RARITIES, acceptEncounter, arenaLabel, declineEncounter, encounterSpec, estimateOdds, gearCondition, inPrelims, playerSpec, repair, repairCost, scout, waitCost, ladderRank, loadScores, retire, score, waitDay,
+  learnSkill, CAREER_SIZES, PRELIMS, RARITIES, acceptEncounter, declineEncounter, encounterSpec, estimateOdds, gearCondition, inPrelims, playerSpec, repair, repairCost, scout, waitCost, ladderRank, loadScores, retire, score, waitDay,
 } from '../game/state';
 import { drawPortrait } from '../render/portrait';
+import { EXERCISE_MS, drawExercise, drawGain } from '../render/exercise';
+import { IDLE, lookFor, pose } from '../render/rig';
+import {
+  GROUND_SPOTS, SHOPKEEPER_LOOK, STATIONS, TRAINER_POSE, YARD_SPOTS, drawCharacter, drawGate, drawGrounds, drawShopScene, drawYard, iconCanvas,
+  shopkeeperSpec, speech, trainerSpec, type IconKind, type StatKey,
+} from '../render/scenes';
 import { Splash } from '../render/splash';
 import { Viewer } from '../render/viewer';
+import { SceneCanvas } from './scene';
 import { HELP_HTML, SCOUT_TIP, dismissTip, isSeen, nextTip, resetTips, type Tip } from './tips';
 import { CLASS_IDS, ZONES, type ClassId, type FightResult, type Stats, type Zone } from '../sim/types';
 
@@ -26,9 +33,11 @@ const canvas = document.createElement('canvas');
 
 const viewer = new Viewer(canvas);
 const splash = new Splash();
+const scene = new SceneCanvas();
 
 function html(strings: string, storm = false) {
   splash.stop();
+  scene.stop();
   const h1 = document.querySelector('h1') as HTMLElement | null;
   if (h1) h1.style.display = '';
   app.innerHTML = strings; document.body.classList.toggle('storm', storm); }
@@ -109,14 +118,25 @@ function create() {
 }
 
 // ---- hub -----------------------------------------------------------------------------
-function statsPanel(s: Save) {
-  const st = stats(s);
-  return STAT_KEYS.map((k) => `<div class="stat"><b title="${STAT_LABEL[k]}: ${STAT_HINT[k]}">${k.toUpperCase()}</b><div class="meter"><i style="width:${Math.min(100, st[k])}%"></i></div><span style="width:28px;text-align:right">${st[k]}</span>
-    ${s.unspent > 0 ? `<button data-sp="${k}">+</button>` : ''}</div>`).join('');
+// ---- the town: illustrated yard, shop, training grounds and the coliseum gate ---------------------
+const iconHtml = (k: IconKind, sz = 26, cls = '') => `<span class="ic ${cls}" data-ic="${k}" data-sz="${sz}"></span>`;
+function fillIcons() {
+  document.querySelectorAll<HTMLElement>('[data-ic]').forEach((el) => { if (!el.firstChild) el.appendChild(iconCanvas(el.dataset.ic as IconKind, Number(el.dataset.sz || 26))); });
 }
-function injuryTags(s: Save) {
-  const t = ZONES.filter((z) => s.injuries[z]).map((z) => `<span class="tag ${s.injuries[z]}">${ZONE_LABEL[z]}: ${s.injuries[z]}${s.prosthetics[z] ? ' (prosthetic)' : ''}</span>`);
-  return t.length ? t.join('') : '<span class="dim">No injuries</span>';
+
+function topBar(s: Save) {
+  const bolts = Array.from({ length: MAX_ENERGY }, (_, i) => `<span class="ic ${i < s.energy ? '' : 'off'}" data-ic="bolt" data-sz="22"></span>`).join('');
+  return `<div class="topbar"><div class="who"><b>${s.name}</b><span class="dim"> Lv ${level(s)} ${CLASSES[s.classId].label}</span>${s.sick > 0 ? '<span class="tag wounded">Sick</span>' : ''}${s.bedridden > 0 ? '<span class="tag maimed">Bedridden</span>' : ''}</div>
+    <div class="day">Day ${s.day}</div><div class="res">${iconHtml('coin', 22)}<b>${s.gold}</b><span class="bolts">${bolts}</span></div></div>`;
+}
+
+function chips(s: Save) {
+  const st = stats(s);
+  return STAT_KEYS.map((k) => `<div class="chip" title="${STAT_LABEL[k]}: ${STAT_HINT[k]}">${iconHtml(k, 22)}<b>${st[k]}</b>${s.unspent > 0 ? `<button class="plus" data-sp="${k}" title="Spend a stat point">+</button>` : ''}</div>`).join('');
+}
+
+function wireStatButtons(s: Save, refresh: () => void) {
+  document.querySelectorAll<HTMLElement>('[data-sp]').forEach((e) => (e.onclick = () => { spendPoint(s, e.dataset.sp as keyof Stats); commit(); refresh(); }));
 }
 
 function hub() {
@@ -124,84 +144,225 @@ function hub() {
   if (!s.alive) return runEnd();
   if (s.pending) return arena(); // an entered fight is binding: reopening resumes the same one
   if (s.encounter && !s.encounter.accepted) return offerScreen(s); // an infamous challenger must be answered first
-  html(`<div class="card"><canvas id="portrait" width="170" height="230" style="float:right;margin:0 0 8px 14px;border-radius:10px;border:2px solid #4a3b2c;width:170px;height:230px"></canvas>
-    <h2>${s.name} the ${CLASSES[s.classId].label} <span class="dim">· Level ${level(s)}</span></h2>
-    <div class="row"><span class="big">Day ${s.day}</span><span>Gold: <b>${s.gold}</b></span><span>Energy: <b>${'●'.repeat(s.energy)}${'○'.repeat(MAX_ENERGY - s.energy)}</b></span><span>Wins: ${s.wins}</span>${s.sick > 0 ? '<span class="tag wounded">Sick</span>' : ''}${s.bedridden > 0 ? '<span class="tag maimed">Bedridden</span>' : ''}<span class="dim">Best: ${s.best}</span></div>
-    ${s.unspent > 0 ? `<div class="big">${s.unspent} unspent stat point${s.unspent > 1 ? 's' : ''} — click + to spend</div>` : ''}
-    ${s.skillPoints > 0 ? `<div class="big">${s.skillPoints} skill point${s.skillPoints > 1 ? 's' : ''} to spend. Open Skills.</div>` : ''}
-    ${statsPanel(s)}
-    <div style="margin-top:6px">${injuryTags(s)}</div>
-    ${gearPanel(s)}
-    ${tipBanner(s)}
-    ${newsPanel(s)}
-    ${careerPanel(s)}
+  const g = gearCondition(s);
+  const todo = [s.unspent > 0 ? `${s.unspent} stat point${s.unspent > 1 ? 's' : ''} to spend (tap +)` : '', s.skillPoints > 0 ? `${s.skillPoints} skill point${s.skillPoints > 1 ? 's' : ''}: visit the scroll` : ''].filter(Boolean);
+  html(`<div class="town">${topBar(s)}${tipBanner(s)}${newsPanel(s)}${careerPanel(s)}
+    <div class="stagewrap" id="stage"></div>
+    <div class="chips">${chips(s)}</div>
+    ${todo.length ? `<div class="big" style="text-align:center">${todo.join(' · ')}</div>` : ''}
     <div class="msg">${msg}</div>
-    <div class="row">
-      <span class="dim">Train (1 energy):</span>
-      ${STAT_KEYS.map((k) => `<button data-t="${k}" title="Train ${STAT_LABEL[k]}: ${STAT_HINT[k]} (1 energy)" ${s.energy < 1 ? 'disabled' : ''}>${k.toUpperCase()}</button>`).join('')}
-    </div>
-    <div class="row">
-      <button id="rest" title="Heals bruises and wounds and cures fever. Costs 1 energy and gold." ${s.energy < 1 || s.gold < REST_GOLD ? 'disabled' : ''}>Rest (1 energy, ${REST_GOLD}g)</button>
-      <button id="shop" title="Repairs, upgrades and prosthetics">Shop</button>
-      <button id="skills" class="${s.skillPoints > 0 ? 'glow' : ''}" title="Learn passive skills with skill points">Skills${s.skillPoints > 0 ? ` (${s.skillPoints})` : ''}</button>
-      <button class="pri" id="arena" ${s.bedridden > 0 ? 'disabled' : ''}>${arenaLabel(s)}</button>
-      <button id="wait" title="Skip to the next day to train more. Costs gold, and rivals keep growing stronger.">Wait a day (${waitCost(s)}g)</button>
-      <button id="retire" style="margin-left:auto" title="End this run and record your score">Retire</button><button id="menu">Menu</button><button id="help" title="How to play">?</button>
+    <div class="icons">
+      <button class="ibtn" id="rest" title="Rest: heals bruises and wounds, cures fever (1 energy, ${REST_GOLD}g)">${iconHtml('tent', 22)}<small>Rest</small></button>
+      <button class="ibtn ${s.skillPoints > 0 ? 'glow' : ''}" id="skills" title="Learn skills">${iconHtml('scroll', 22)}<small>Skills</small></button>
+      <button class="ibtn" id="wait" title="Skip to the next day. Costs gold, and rivals keep growing stronger.">${iconHtml('hourglass', 22)}<small>${waitCost(s)}g</small></button>
+      <span class="sp"></span>
+      <button class="ibtn" id="retire" title="End this run and record your score">${iconHtml('flag', 22)}</button>
+      <button class="ibtn" id="menu" title="Main menu">${iconHtml('menu', 22)}</button>
+      <button class="ibtn" id="help" title="How to play">${iconHtml('help', 22)}</button>
     </div></div>`);
-  document.querySelectorAll<HTMLElement>('[data-sp]').forEach((e) => (e.onclick = () => { spendPoint(s, e.dataset.sp as keyof Stats); commit(); hub(); }));
-  document.querySelectorAll<HTMLElement>('[data-t]').forEach((e) => (e.onclick = () => trainAnim(e.dataset.t as keyof Stats)));
+  document.getElementById('stage')!.appendChild(scene.el);
+  fillIcons(); wireTips(); wireStatButtons(s, hub);
+  const spec = playerSpec(s);
+  const badges = {
+    skills: s.skillPoints > 0 ? String(s.skillPoints) : undefined,
+    rest: Object.keys(s.injuries).length ? '!' : undefined,
+    shop: g.weapon < 50 || g.armor < 50 ? '!' : undefined,
+    training: s.energy > 0 && s.bedridden === 0 ? String(s.energy) : undefined,
+  };
+  scene.spots = YARD_SPOTS;
+  scene.draw = (c, t, hover) => { drawYard(c, t, hover, badges); drawCharacter(c, spec, 480, 526, 1.9, { t, injuries: s.injuries, prosthetics: s.prosthetics }); };
+  scene.onClick = (id) => {
+    if (id === 'coliseum') arena();
+    else if (id === 'shop') { shopMsg = ''; shop(); }
+    else if (id === 'training') { msg = ''; training(); }
+    else if (id === 'rest') { msg = rest(s); commit(); hub(); }
+    else if (id === 'skills') { msg = ''; skillsScreen(); }
+  };
+  scene.start();
   on('rest', () => { msg = rest(s); commit(); hub(); });
-  on('shop', shop); on('arena', arena); on('menu', menu); on('skills', () => { msg = ''; skillsScreen(); }); on('help', showHelp);
-  wireTips();
+  on('skills', () => { msg = ''; skillsScreen(); });
   on('wait', () => { msg = waitDay(s); commit(); hub(); });
-  const pc = document.getElementById('portrait') as HTMLCanvasElement | null;
-  if (pc) drawPortrait(pc, playerSpec(s), { injuries: s.injuries, prosthetics: s.prosthetics });
+  on('menu', menu); on('help', showHelp);
   on('retire', () => { if (confirm('Retire this gladiator and record the score?')) { retire(s); commit(); hub(); } });
 }
 
-function trainAnim(k: keyof Stats) {
+// ---- training grounds ----------------------------------------------------------------------------
+function training() {
   const s = save!;
-  if (s.energy < 1) return;
-  html(`<div class="card"><div class="train">Training ${STAT_LABEL[k]}…</div></div>`);
-  setTimeout(() => { msg = train(s, k, actionRng(s, k)); commit(); hub(); }, 1800);
-}
-
-// ---- shop ----------------------------------------------------------------------------
-function shop() {
-  const s = save!;
-  const tier = (kind: 'weapon' | 'armor') => {
-    const t = kind === 'weapon' ? s.weaponTier : s.armorTier;
-    return t >= 2 ? 'Max in shop' : `${TIER_COSTS[kind][t]}g`;
+  const canTrain = s.energy > 0 && s.bedridden === 0;
+  html(`<div class="town">${topBar(s)}${tipBanner(s)}
+    <div class="stagewrap" id="stage"></div>
+    <div class="chips">${chips(s)}</div>
+    <div class="msg">${msg || (canTrain ? 'Pick a station. Each session costs 1 energy.' : 'You are too tired to train. Rest, or wait a day.')}</div>
+    <div class="icons"><button class="ibtn" id="back">${iconHtml('ground', 22)}<small>Back to the yard</small></button></div></div>`);
+  document.getElementById('stage')!.appendChild(scene.el);
+  fillIcons(); wireTips(); wireStatButtons(s, training);
+  const spec = playerSpec(s), vals = stats(s);
+  const tr = trainerSpec();
+  scene.spots = GROUND_SPOTS;
+  scene.draw = (c, t, hover) => {
+    drawGrounds(c, t, hover, canTrain, vals);
+    drawCharacter(c, tr, 385, 548, 1.15, { t, armed: false, pose: TRAINER_POSE, look: SHOPKEEPER_LOOK(tr) });
+    drawCharacter(c, spec, 575, 548, 1.15, { t, injuries: s.injuries, prosthetics: s.prosthetics });
+    const st = STATIONS.find((x) => x.id === hover);
+    if (st) speech(c, `${st.what}: +1 ${st.id.toUpperCase()} (1 energy)`, Math.min(st.x - 40, 700), 190, 260);
+    else if (hover === 'trainer') speech(c, `Hire me: +2 stat points for ${trainerCost(s)} gold.`, 300, 340, 260);
   };
-  const maimed = ZONES.filter((z) => s.injuries[z] === 'maimed');
-  html(`<div class="card"><h2>Shop <span class="dim">· Gold: ${s.gold}</span></h2>
-    <div class="msg">${msg}</div>
-    <div class="row"><button id="bw">Sharpen weapon (+10% damage) — tier ${s.weaponTier}/2 — ${tier('weapon')}</button></div>
-    <div class="row"><button id="ba">Better armor (+6 all zones) — tier ${s.armorTier}/2 — ${tier('armor')}</button></div>
-    <h2 style="margin-top:12px">Master trainer</h2>
-    <div class="row"><button id="trainer" title="Turn gold into stat points">Hire a master trainer — ${trainerCost(s)}g (+2 stat points)</button></div>
-    <h2 style="margin-top:12px">Repairs</h2>
-    ${gearPanel(s)}
-    <div class="row">
-      <button id="rpw" ${repairCost(s, 'weapon') ? '' : 'disabled'}>Weapon — ${repairCost(s, 'weapon')}g</button>
-      ${s.classId && gearCondition(s).shield !== null ? `<button id="rps" ${repairCost(s, 'shield') ? '' : 'disabled'}>Shield — ${repairCost(s, 'shield')}g</button>` : ''}
-      <button id="rpa" ${repairCost(s, 'armor') ? '' : 'disabled'}>Armor — ${repairCost(s, 'armor')}g</button>
-      <button id="rpall" ${repairCost(s, 'all') ? '' : 'disabled'}>Repair all — ${repairCost(s, 'all')}g</button>
-    </div>
-    <h2 style="margin-top:12px">Prosthetics</h2>
-    ${maimed.length ? maimed.map((z) => `<div class="row"><button data-pz="${z}" ${s.prosthetics[z] ? 'disabled' : ''}>${ZONE_LABEL[z]} prosthetic — ${PROSTHETIC_COST}g</button><span class="dim">halves the lasting damage</span></div>`).join('') : '<p class="dim">No maimed limbs.</p>'}
-    <div class="row"><button id="back">Back</button></div></div>`);
-  on('trainer', () => { msg = hireTrainer(s); commit(); shop(); });
-  on('rpw', () => { msg = repair(s, 'weapon'); commit(); shop(); });
-  on('rps', () => { msg = repair(s, 'shield'); commit(); shop(); });
-  on('rpa', () => { msg = repair(s, 'armor'); commit(); shop(); });
-  on('rpall', () => { msg = repair(s, 'all'); commit(); shop(); });
-  on('bw', () => { msg = buyTier(s, 'weapon'); commit(); shop(); });
-  on('ba', () => { msg = buyTier(s, 'armor'); commit(); shop(); });
-  document.querySelectorAll<HTMLElement>('[data-pz]').forEach((e) => (e.onclick = () => { msg = buyProsthetic(s, e.dataset.pz as Zone); commit(); shop(); }));
+  scene.onClick = (id) => {
+    if (id === 'trainer') {
+      if (confirm(`Hire the master trainer for ${trainerCost(s)} gold? You get +2 stat points to spend.`)) { msg = hireTrainer(s); commit(); training(); }
+      return;
+    }
+    if (!canTrain) { msg = s.bedridden > 0 ? 'You are bedridden.' : 'You are too tired to train.'; training(); return; }
+    startExercise(id as StatKey);
+  };
+  scene.start();
   on('back', () => { msg = ''; hub(); });
 }
 
+/** A very brief exercise scene, then the result, then back to the training grounds. */
+function startExercise(stat: StatKey) {
+  const s = save!;
+  const spec = playerSpec(s);
+  const before = stats(s)[stat];
+  const t0 = performance.now();
+  let result = '', gain = 0, applied = false;
+  scene.spots = [];
+  scene.draw = (c, t) => {
+    const el = performance.now() - t0;
+    if (el < EXERCISE_MS) { drawExercise(c, stat, el / EXERCISE_MS, t, spec, { injuries: s.injuries, prosthetics: s.prosthetics }); return; }
+    if (!applied) { applied = true; result = train(s, stat, actionRng(s, stat)); gain = stats(s)[stat] - before; msg = result; commit(); }
+    drawExercise(c, stat, 0.999, t, spec, { injuries: s.injuries, prosthetics: s.prosthetics });
+    const hurt = /strained/.test(result);
+    drawGain(c, gain > 0 ? `+${gain} ${stat.toUpperCase()}` : 'No gain', hurt ? '#ff6a50' : gain > 1 ? '#ffd24a' : gain > 0 ? '#9be37a' : '#cfc6b0', Math.min(1, (el - EXERCISE_MS) / 1000), stat);
+    if (el > EXERCISE_MS + 1050) { scene.draw = () => {}; training(); }
+  };
+}
+
+// ---- shop ------------------------------------------------------------------------------------------
+let shopMsg = '';
+function shop() {
+  const s = save!;
+  const tierPrice = (kind: 'weapon' | 'armor') => { const t = kind === 'weapon' ? s.weaponTier : s.armorTier; return t >= 2 ? null : TIER_COSTS[kind][t]; };
+  const good = (ic: IconKind, title: string, desc: string, price: string, id: string, disabled = false, data = '') =>
+    `<div class="good">${iconHtml(ic, 40, 'big')}<div class="gd"><b>${title}</b><div class="dim">${desc}</div></div><button id="${id}" ${data} class="pri" ${disabled ? 'disabled' : ''}>${price}</button></div>`;
+  const wp = tierPrice('weapon'), ap = tierPrice('armor');
+  const maimed = ZONES.filter((z) => s.injuries[z] === 'maimed');
+  const items = [
+    good('sword', wp ? `${RARITIES[s.weaponTier + 1]} weapon` : 'Weapon', wp ? `+10% damage${s.weaponTier + 1 >= 2 ? ', with a perk' : ''}` : 'Nothing better in stock', wp ? `${wp}g` : 'Max', 'bw', !wp),
+    good('armor', ap ? `${RARITIES[s.armorTier + 1]} armor` : 'Armor', ap ? `+6 armor on every zone${s.armorTier + 1 >= 2 ? ', with a perk' : ''}` : 'Nothing better in stock', ap ? `${ap}g` : 'Max', 'ba', !ap),
+    good('hammer', 'Repair weapon', 'Sharpened and balanced again', `${repairCost(s, 'weapon')}g`, 'rpw', !repairCost(s, 'weapon')),
+    ...(gearCondition(s).shield !== null ? [good('shield', 'Repair shield', 'Dents hammered out', `${repairCost(s, 'shield')}g`, 'rps', !repairCost(s, 'shield'))] : []),
+    good('armor', 'Repair armor', 'Every plate and strap', `${repairCost(s, 'armor')}g`, 'rpa', !repairCost(s, 'armor')),
+    good('hammer', 'Repair everything', 'The full overhaul', `${repairCost(s, 'all')}g`, 'rpall', !repairCost(s, 'all')),
+    ...maimed.map((z) => good('leg', `${ZONE_LABEL[z]} prosthetic`, 'Halves the lasting damage', s.prosthetics[z] ? 'Fitted' : `${PROSTHETIC_COST}g`, 'pz_' + z, !!s.prosthetics[z])),
+  ];
+  html(`<div class="town">${topBar(s)}
+    <div class="stagewrap" id="stage"></div>
+    <div class="goods">${items.join('')}</div>
+    ${gearPanel(s)}
+    <div class="icons"><button class="ibtn" id="back">${iconHtml('shop', 22)}<small>Leave the shop</small></button></div></div>`);
+  document.getElementById('stage')!.appendChild(scene.el);
+  fillIcons();
+  const keeper = shopkeeperSpec();
+  const line = /^Bought/.test(shopMsg) ? 'A fine choice! May it serve you well.' : /^Repaired/.test(shopMsg) ? 'Good as new, friend.' : /nothing better|best/i.test(shopMsg) ? 'That is the finest I have, I swear it.'
+    : /cost|Need|wants/i.test(shopMsg) ? 'Come back when your purse is heavier.' : shopMsg || ['Welcome, gladiator! Steel and leather at fair prices.', 'Looking to survive another day?', 'Mind the sharp end.'][s.day % 3];
+  const born = performance.now();
+  scene.spots = [];
+  scene.draw = (c, t) => {
+    const talking = performance.now() - born < 2200;
+    drawShopScene(c, t, () => drawCharacter(c, keeper, 640, 470, 2, {
+      t, armed: false, look: SHOPKEEPER_LOOK(keeper),
+      pose: pose({ lean: 2, wU: 56 + (talking ? Math.sin(t * 7) * 14 : 0), wL: 96, sU: 50, sL: 100, fU: 10, fL: 2, bU: -10, bL: -2, head: talking ? Math.sin(t * 5) * 3 : 0 }),
+    }));
+    speech(c, line, 340, 300, 300);
+  };
+  scene.start();
+  const buy = (fn: () => string) => () => { shopMsg = fn(); commit(); shop(); };
+  on('bw', buy(() => buyTier(s, 'weapon'))); on('ba', buy(() => buyTier(s, 'armor')));
+  on('rpw', buy(() => repair(s, 'weapon'))); on('rps', buy(() => repair(s, 'shield'))); on('rpa', buy(() => repair(s, 'armor'))); on('rpall', buy(() => repair(s, 'all')));
+  maimed.forEach((z) => on('pz_' + z, buy(() => buyProsthetic(s, z))));
+  on('back', () => { shopMsg = ''; msg = ''; hub(); });
+}
+
+// ---- arena: the coliseum gate with the next fights ------------------------------------------------
+function readiness(s: Save): string[] {
+  const out: string[] = [];
+  if (s.unspent > 0) out.push(`${s.unspent} unspent stat point${s.unspent > 1 ? 's' : ''}: spend them with the + buttons`);
+  if (s.skillPoints > 0) out.push(`${s.skillPoints} unspent skill point${s.skillPoints > 1 ? 's' : ''}: visit the scroll`);
+  if (Object.keys(s.injuries).length) out.push('You are injured: rest in the tent heals bruises and wounds');
+  const g = gearCondition(s);
+  if (g.weapon < 60 || g.armor < 60 || (g.shield !== null && g.shield < 40)) out.push('Your gear is worn: repair it in the shop');
+  if (s.energy > 0 && s.bedridden === 0) out.push(`${s.energy} energy unused: the training grounds make you stronger`);
+  if (s.gold >= trainerCost(s)) out.push(`You can afford the master trainer (${trainerCost(s)}g, +2 stat points)`);
+  return out;
+}
+
+/** Look over the next fight(s) at the gate. Nothing is saved until you press Fight. */
+function scoutScreen(s: Save) {
+  const cands = scout(s);
+  const free = cands.length > 1 && s.mode === 'free';
+  const ladder = cands.find((c) => !c.bout.spar) ?? cands[0];
+  const spar = cands.find((c) => c.bout.spar);
+  const weakest = Math.max(...cands.map((c) => c.odds));
+  const risky = free ? weakest < 0.55 : ladder.odds < 0.4;
+  const checklist = readiness(s);
+  let sel = Math.max(0, cands.findIndex((c) => c.pick === 1));
+  const warn = risky
+    ? `<div class="warn"><b>⚠ You look outmatched${free ? ': even the weakest opponent is risky.' : ` (${Math.round(ladder.odds * 100)}% to win).`}</b>
+      ${spar ? ' A sparring match is much safer.' : ''} Strengthen yourself first:${checklist.length ? `<ul>${checklist.map((x) => `<li>${x}</li>`).join('')}</ul>` : ' you are as prepared as you can be right now, so consider a safer option.'}</div>`
+    : '';
+  const foe = (c: (typeof cands)[number], i: number) => {
+    const e = c.bout.enemy;
+    return `<div class="foe ${i === sel ? 'sel' : ''}" data-foe="${i}">
+      <canvas class="pv" data-foe-pv="${i}" width="84" height="112"></canvas>
+      <div class="fd"><b>${e.name}</b>${cands.length > 1 ? `<div class="gold">${c.bout.label}</div>` : ''}
+        <div class="dim">${iconHtml('sword', 16)} ${e.weapon.name}${e.shield ? ' + ' + e.shield.name : ''} · Lv ${e.level}${e.skills?.length ? ` · ${e.skills.length} skills` : ''}${c.bout.reward !== 1 ? ` · gold x${c.bout.reward}` : ''}</div>
+        <div class="odds">${oddsInfo(c.odds)}<div class="bar"><i style="width:${Math.round(c.odds * 100)}%;background:${c.odds >= 0.7 ? '#6aa65a' : c.odds >= 0.45 ? '#d9c25a' : c.odds >= 0.25 ? '#e08a3a' : '#e04030'}"></i></div></div></div>
+      <button class="pri" data-pick="${c.pick}">Fight</button></div>`;
+  };
+  html(`<div class="town">${topBar(s)}
+    <div class="stagewrap" id="stage"></div>
+    ${tipBanner(s, isSeen(SCOUT_TIP.id) ? null : SCOUT_TIP)}
+    ${warn}
+    <div class="foes">${cands.map(foe).join('')}</div>
+    ${gearWarn(s)}
+    <div class="icons"><button class="ibtn" id="back">${iconHtml('coliseum', 22)}<small>${risky ? 'Go back and prepare' : 'Back to the yard'}</small></button></div></div>`);
+  document.getElementById('stage')!.appendChild(scene.el);
+  fillIcons(); wireTips();
+  cands.forEach((c, i) => { const cv = document.querySelector<HTMLCanvasElement>(`[data-foe-pv="${i}"]`); if (cv) drawPortrait(cv, c.bout.enemy); });
+  const me = playerSpec(s);
+  const drawStage = () => {
+    scene.draw = (c, t) => {
+      const cand = cands[sel], e = cand.bout.enemy;
+      drawGate(c, t);
+      drawCharacter(c, me, 290, 524, 1.9, { t, injuries: s.injuries, prosthetics: s.prosthetics, pose: { ...IDLE, lean: 6, wU: 70, wL: 84 } });
+      drawCharacter(c, e, 670, 524, 1.9, { t, flip: true, look: lookFor(e, 1), pose: { ...IDLE, lean: 6, wU: 70, wL: 84 } });
+      c.textAlign = 'center'; c.font = 'bold 26px system-ui'; c.lineWidth = 6; c.lineJoin = 'round'; c.strokeStyle = '#1d1511';
+      const plate = (txt: string, x: number, col: string) => { c.strokeText(txt, x, 64); c.fillStyle = col; c.fillText(txt, x, 64); };
+      plate(me.name, 250, '#f1e6d0'); plate(e.name, 710, '#ffb0a0');
+      c.font = 'bold 46px system-ui'; c.strokeText('VS', 480, 300); c.fillStyle = '#ffd24a'; c.fillText('VS', 480, 300);
+      const pct = Math.round(cand.odds * 100);
+      c.lineWidth = 12; c.strokeStyle = 'rgba(0,0,0,.45)'; c.beginPath(); c.arc(480, 200, 46, 0, 7); c.stroke();
+      c.strokeStyle = cand.odds >= 0.7 ? '#6aa65a' : cand.odds >= 0.45 ? '#d9c25a' : cand.odds >= 0.25 ? '#e08a3a' : '#e04030';
+      c.beginPath(); c.arc(480, 200, 46, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * cand.odds); c.stroke();
+      c.font = 'bold 30px system-ui'; c.lineWidth = 5; c.strokeStyle = '#1d1511'; c.strokeText(`${pct}%`, 480, 211); c.fillStyle = '#fff'; c.fillText(`${pct}%`, 480, 211);
+    };
+  };
+  drawStage();
+  scene.start();
+  const select = (i: number) => { sel = i; document.querySelectorAll('.foe').forEach((el, k) => el.classList.toggle('sel', k === i)); };
+  document.querySelectorAll<HTMLElement>('[data-foe]').forEach((e) => (e.onclick = () => select(Number(e.dataset.foe))));
+  document.querySelectorAll<HTMLElement>('[data-pick]').forEach((e) => (e.onclick = (ev) => {
+    ev.stopPropagation();
+    const c = cands.find((x) => x.pick === Number(e.dataset.pick))!;
+    if (c.odds < 0.25 && !confirm(`Deadly odds (${Math.round(c.odds * 100)}% to win). You could die in this fight. Fight anyway?`)) return;
+    bout = openBout(s, c.pick); commit(); watch();
+  }));
+  on('back', hub);
+}
+
+() => ''
 // ---- arena ---------------------------------------------------------------------------
 let bout: Bout | null = null;
 let result: FightResult | null = null;
@@ -219,49 +380,6 @@ function oddsInfo(p: number) {
 }
 
 /** Look over the opponent(s) before committing. Nothing is saved until you press Fight. */
-function readiness(s: Save): string[] {
-  const out: string[] = [];
-  if (s.unspent > 0) out.push(`${s.unspent} unspent stat point${s.unspent > 1 ? 's' : ''}: spend them with the + buttons`);
-  if (s.skillPoints > 0) out.push(`${s.skillPoints} unspent skill point${s.skillPoints > 1 ? 's' : ''}: open Skills`);
-  if (Object.keys(s.injuries).length) out.push('You are injured: Rest heals bruises and wounds');
-  const g = gearCondition(s);
-  if (g.weapon < 60 || g.armor < 60 || (g.shield !== null && g.shield < 40)) out.push('Your gear is worn: repair it in the Shop');
-  if (s.energy > 0 && s.bedridden === 0) out.push(`${s.energy} energy unused: training makes you stronger`);
-  if (s.gold >= trainerCost(s)) out.push(`You can afford a master trainer (${trainerCost(s)}g, +2 stat points)`);
-  return out;
-}
-
-/** Look over the opponent(s) before committing. Nothing is saved until you press Fight. */
-function scoutScreen(s: Save) {
-  const cands = scout(s);
-  const free = cands.length > 1 && s.mode === 'free';
-  const ladder = cands.find((c) => !c.bout.spar) ?? cands[0];
-  const spar = cands.find((c) => c.bout.spar);
-  const weakest = Math.max(...cands.map((c) => c.odds));
-  // warn when the player looks too weak for what is on offer
-  const risky = free ? weakest < 0.55 : ladder.odds < 0.4;
-  const checklist = readiness(s);
-  const warn = risky
-    ? `<div class="warn"><b>⚠ You look outmatched${free ? ': even the weakest opponent is risky.' : ` (${Math.round(ladder.odds * 100)}% to win).`}</b>
-      ${spar ? ' A sparring match is much safer.' : ''} Strengthen yourself first:${checklist.length ? `<ul>${checklist.map((x) => `<li>${x}</li>`).join('')}</ul>` : ' you are as prepared as you can be right now, so consider a safer option.'}</div>`
-    : '';
-  html(`<div class="card"><h2>${free ? 'Choose your opponent' : ladder.bout.label}</h2>
-    ${tipBanner(s, isSeen(SCOUT_TIP.id) ? null : SCOUT_TIP)}
-    <p class="dim">${free ? 'Tougher fights pay more gold. ' : ''}Win odds are a scouting estimate from practice bouts, not a promise.</p>
-    ${warn}
-    ${cands.map((c) => { const e = c.bout.enemy; return `<div class="card" style="margin:8px 0;background:#241b14"><div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
-      <div style="flex:1;min-width:200px"><b>${e.name}</b>${!free && cands.length > 1 ? `<div style="color:#d9c25a">${c.bout.label}</div>` : ''}<div class="dim">${e.weapon.name}${e.shield ? ' + ' + e.shield.name : ''} · Lv ${e.level}${c.bout.reward !== 1 ? ` · gold x${c.bout.reward}` : ''}</div></div>
-      <div>${oddsInfo(c.odds)}</div><button class="pri" data-pick="${c.pick}">Fight</button></div></div>`; }).join('')}
-    ${gearWarn(s)}
-    <div class="row"><button id="back">${risky ? 'Go back and prepare' : 'Back'}</button></div></div>`);
-  wireTips();
-  document.querySelectorAll<HTMLElement>('[data-pick]').forEach((e) => (e.onclick = () => {
-    const c = cands.find((x) => x.pick === Number(e.dataset.pick))!;
-    if (c.odds < 0.25 && !confirm(`Deadly odds (${Math.round(c.odds * 100)}% to win). You could die in this fight. Fight anyway?`)) return;
-    bout = openBout(s, c.pick); commit(); watch();
-  }));
-  on('back', hub);
-}
 
 /** The fight is saved: closing or reloading returns here with the same opponent. */
 function fightCard() {
