@@ -23,7 +23,8 @@ function backdrop(c: CanvasRenderingContext2D, t: number, scroll = 0) {
 
 const CX = 440, CY = 478, SC = 2.3;
 
-export function drawExercise(c: CanvasRenderingContext2D, stat: StatKey, p: number, t: number, spec: FighterSpec, inj: Inj = {}) {
+export function drawExercise(c: CanvasRenderingContext2D, stat: StatKey, p: number, t: number, fullSpec: FighterSpec, inj: Inj = {}) {
+  const spec: FighterSpec = { ...fullSpec, shield: undefined }; // no shield strapped on while training
   const e = ease(p);
   const opts = { t, injuries: inj.injuries, prosthetics: inj.prosthetics, armed: false };
   switch (stat) {

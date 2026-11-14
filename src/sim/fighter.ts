@@ -65,7 +65,7 @@ export function makeRuntime(spec: FighterSpec, id: 0 | 1, rng: Rng): Runtime {
   const hp = { ...max };
   for (const z of ZONES) {
     const loss = spec.carriedHpLoss?.[z] ?? 0;
-    hp[z] = Math.max(1, max[z] - loss);
+    hp[z] = spec.missing?.[z] ? 0 : Math.max(1, max[z] - loss);
   }
   const tier = {} as Record<Zone, ZoneTier>;
   for (const z of ZONES) tier[z] = tierOf(hp[z], max[z]);

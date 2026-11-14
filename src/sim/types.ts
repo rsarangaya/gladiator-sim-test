@@ -36,6 +36,8 @@ export interface FighterSpec {
   personality: Personality;
   /** zone penalties carried in from previous fights (permanent injuries) */
   carriedHpLoss?: Partial<Record<Zone, number>>;
+  /** limbs lost in earlier fights (no prosthetic): they start the fight already gone */
+  missing?: Partial<Record<Zone, boolean>>;
   /** an infamous challenger: drawn bigger, with a blood-red name and a darkened sky */
   human?: boolean;  // the player's fighter (yields earlier than opponents)
   boss?: boolean;

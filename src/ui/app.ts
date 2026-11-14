@@ -1,7 +1,7 @@
 import { CLASSES, makeSpec } from '../data/classes';
 import { SKILLS, canLearn, skillsFor, type SkillDef } from '../data/skills';
 import {
-  MAX_ENERGY, PROSTHETIC_COST, REST_GOLD, START_POINTS, STAT_KEYS, TIER_COSTS,
+  MAX_ENERGY, permanentWounds, PROSTHETIC_COST, REST_GOLD, START_POINTS, STAT_KEYS, TIER_COSTS,
   actionRng, hireTrainer, trainerCost, buyProsthetic, buyTier, clearSave, level, loadGame, newGame, openBout, rest, runBout, saveGame,
   settleBout, spendPoint, stats, train, type Bout, type Difficulty, type Save, type Mode,
   learnSkill, CAREER_SIZES, PRELIMS, RARITIES, acceptEncounter, declineEncounter, encounterSpec, estimateOdds, gearCondition, inPrelims, playerSpec, repair, repairCost, scout, waitCost, ladderRank, loadScores, retire, score, waitDay,
@@ -85,7 +85,7 @@ function create() {
     html(`<div class="card"><h2>Create your gladiator</h2>
       <div class="row"><input id="name" placeholder="Name" maxlength="20" value="${nameVal.replace(/"/g, '')}" /></div>
       <div class="grid">${CLASS_IDS.map((id) => `<div class="card pick ${id === classId ? 'sel' : ''}" data-c="${id}">
-        <canvas data-pv="${id}" width="76" height="104" style="float:left;margin-right:10px;border-radius:8px;width:76px;height:104px"></canvas><b>${CLASSES[id].label}</b><div class="dim">${CLASSES[id].blurb}</div><div class="dim">Signature: ${CLASSES[id].signature}</div></div>`).join('')}</div>
+        <canvas data-pv="${id}" width="76" height="104" style="float:left;margin-right:10px;border-radius:8px;width:76px;height:104px"></canvas><b>${CLASSES[id].label}</b><div class="dim">${CLASSES[id].blurb}</div><div class="pc"><span class="pro">+ ${CLASSES[id].pros}</span><span class="con">- ${CLASSES[id].cons}</span></div><div class="dim">Signature: ${CLASSES[id].signature}</div></div>`).join('')}</div>
       <h2 style="margin-top:12px">Stat points: ${left()} left</h2>
       ${STAT_KEYS.map((k) => `<div class="stat"><b>${k.toUpperCase()}</b><span style="width:170px">${STAT_LABEL[k]} <span class="dim">(${STAT_HINT[k]})</span></span>
         <button data-m="${k}">−</button><span style="width:30px;text-align:center">${c.base[k] + alloc[k]}</span><button data-p="${k}">+</button></div>`).join('')}
@@ -124,6 +124,27 @@ function fillIcons() {
   document.querySelectorAll<HTMLElement>('[data-ic]').forEach((el) => { if (!el.firstChild) el.appendChild(iconCanvas(el.dataset.ic as IconKind, Number(el.dataset.sz || 26))); });
 }
 
+const ZONE_EFFECT: Record<Zone, string> = {
+  head: 'worse accuracy, easier to stun', torso: 'less total health', armW: 'weaker hits, slower swings',
+  armS: 'weaker blocking', legL: 'slower, easier to hit', legR: 'slower, easier to hit',
+};
+const TIER_TEXT = {
+  bruised: 'starts each fight with 12% less health in that spot. Heals with rest.',
+  wounded: 'starts each fight with 35% less health in that spot. Heals with rest.',
+  maimed: 'the limb is gone and you start every fight without it. A prosthetic gives back most of it.',
+} as const;
+function injuryPanel(s: Save) {
+  const rows = ZONES.filter((z) => s.injuries[z]).map((z) => {
+    const t = s.injuries[z]!;
+    const lost = t === 'maimed' && !s.prosthetics[z];
+    const perm = t === 'maimed' && permanentWounds(s) ? ' Permanent in this mode.' : '';
+    return `<div class="inj ${t}"><b>${ZONE_LABEL[z]}: ${lost ? 'lost' : s.prosthetics[z] && t === 'maimed' ? 'prosthetic' : t}</b> <span class="dim">- ${ZONE_EFFECT[z]}; ${t === 'maimed' && s.prosthetics[z] ? 'prosthetic fitted, starts each fight at about 65%.' : TIER_TEXT[t]}${perm}</span></div>`;
+  });
+  if (!rows.length) return '';
+  const tail = s.mode === 'career' || s.difficulty === 'hard' ? '' : '';
+  return `<div class="injpanel"><div class="dim" style="font-size:12px">Injuries. If you stay badly hurt and skip rest, you can catch an infection and be laid up.</div>${rows.join('')}${tail}</div>`;
+}
+
 function topBar(s: Save) {
   const bolts = Array.from({ length: MAX_ENERGY }, (_, i) => `<span class="ic ${i < s.energy ? '' : 'off'}" data-ic="bolt" data-sz="22"></span>`).join('');
   return `<div class="topbar"><div class="who"><b>${s.name}</b><span class="dim"> Lv ${level(s)} ${CLASSES[s.classId].label}</span>${s.sick > 0 ? '<span class="tag wounded">Sick</span>' : ''}${s.bedridden > 0 ? '<span class="tag maimed">Bedridden</span>' : ''}</div>
@@ -149,6 +170,7 @@ function hub() {
   html(`<div class="town">${topBar(s)}${tipBanner(s)}${newsPanel(s)}${careerPanel(s)}
     <div class="stagewrap" id="stage"></div>
     <div class="chips">${chips(s)}</div>
+    ${injuryPanel(s)}
     ${todo.length ? `<div class="big" style="text-align:center">${todo.join(' · ')}</div>` : ''}
     <div class="msg">${msg}</div>
     <div class="icons">
@@ -167,7 +189,7 @@ function hub() {
   const badges = {
     skills: s.skillPoints > 0 ? String(s.skillPoints) : undefined,
     rest: Object.keys(s.injuries).length ? '!' : undefined,
-    shop: g.weapon < 50 || g.armor < 50 ? '!' : undefined,
+    shop: g.weapon < 70 || g.armor < 70 ? '!' : undefined,
     training: s.energy > 0 && s.bedridden === 0 ? String(s.energy) : undefined,
   };
   scene.spots = YARD_SPOTS;
@@ -196,6 +218,7 @@ function training() {
   html(`<div class="town">${topBar(s)}${tipBanner(s)}
     <div class="stagewrap" id="stage"></div>
     <div class="chips">${chips(s)}</div>
+    ${injuryPanel(s)}
     <div class="msg">${msg || (canTrain ? 'Pick a station. Each session costs 1 energy.' : 'You are too tired to train. Rest, or wait a day.')}</div>
     <div class="icons"><button class="ibtn" id="back">${iconHtml('ground', 22)}<small>Back to the yard</small></button></div></div>`);
   document.getElementById('stage')!.appendChild(scene.el);
@@ -258,6 +281,7 @@ function equipment(back: () => void = hub) {
     <div class="equip">
       <div class="paper"><canvas id="eqpv" width="220" height="330" style="width:220px;height:330px"></canvas><div class="dim" style="text-align:center">${s.name} · Lv ${level(s)} ${CLASSES[s.classId].label}</div></div>
       <div class="slots">
+        ${injuryPanel(s)}
         <h3>Weapon</h3>
         ${slot('sword', `${RARITIES[s.weaponTier]} ${w.name}`, `Damage ${Math.round(w.dmg)} · Reach ${w.reach.toFixed(1)} · Speed ${w.speed.toFixed(2)}${s.loot?.weapon ? ' · ' + s.loot.weapon : ''}`, g.weapon, perks(s.perks.weapon))}
         ${spec.shield ? slot('shield', spec.shield.name, `Blocks ${Math.round(spec.shield.block * 100)}% · Absorbs ${Math.round(spec.shield.absorb * 100)}%`, g.shield) : ''}

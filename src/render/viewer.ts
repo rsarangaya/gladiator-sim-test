@@ -82,11 +82,11 @@ export class Viewer {
     this.tick = 0; this.acc = 0; this.evIdx = 0; this.hold = 0; this.shake = 0; this.excite = 0; this.ended = false; this.after = 0;
     this.parts = []; this.fx = []; this.banners = [{ life: 1.6, text: 'FIGHT!', color: '#ffd24a' }]; this.props = []; this.nets = []; this.stains = []; this.gibs = [];
     this.flash = [0, 0];
-    const mk = (i: 0 | 1): FS => ({ act: null, start: -99, hitAt: -99, stunUntil: -1, snareUntil: -1, bleedUntil: -1, armed: true, deadAt: -1, yieldAt: -1, trail: [], look: lookFor(specs[i], i), dur: { su: 1, ac: 1, rc: 1 }, marks: carriedMarks(specs[i]), bloody: false, lastCut: 'torso', severed: {}, slowUntil: -1, moveUntil: -1, moveDir: 1, seq: 0 });
+    const mk = (i: 0 | 1): FS => ({ act: null, start: -99, hitAt: -99, stunUntil: -1, snareUntil: -1, bleedUntil: -1, armed: true, deadAt: -1, yieldAt: -1, trail: [], look: lookFor(specs[i], i), dur: { su: 1, ac: 1, rc: 1 }, marks: carriedMarks(specs[i]), bloody: false, lastCut: 'torso', severed: { ...(specs[i].missing ?? {}) }, slowUntil: -1, moveUntil: -1, moveDir: 1, seq: 0 });
     this.fs = [mk(0), mk(1)];
     const start = (i: 0 | 1) => {
       const o = { ...r.maxHp[i] };
-      for (const z of ZONES) o[z] = Math.max(1, o[z] - (specs[i].carriedHpLoss?.[z] ?? 0));
+      for (const z of ZONES) o[z] = specs[i].missing?.[z] ? 0 : Math.max(1, o[z] - (specs[i].carriedHpLoss?.[z] ?? 0));
       return o;
     };
     this.hp = [start(0), start(1)];

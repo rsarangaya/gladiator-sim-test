@@ -50,7 +50,7 @@ export function decide(self: Runtime, opp: Runtime, r: Rng): Decision {
   // yield when one more big hit could be fatal (scales with the opponent's damage, so it holds at every level)
   const burst = opp.weapon.dmg * (0.5 + opp.spec.stats.str / 100) * TUNING.damageScale * 2.2;
   const danger = self.hp.torso < burst * 1.2 || self.hp.head < burst * 1.5;
-  if (danger && r() < (hum ? (self.spec.personality === 'aggressive' ? 0.18 : 0.2) : yc * (self.spec.personality === 'aggressive' ? 0.3 : 0.5))) return { kind: 'yield' };
+  if (danger && r() < yc * (self.spec.personality === 'aggressive' ? 0.4 : 0.6)) return { kind: 'yield' };
 
   // --- threat read -----------------------------------------------------------
   let threat = false;

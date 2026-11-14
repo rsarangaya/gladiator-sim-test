@@ -43,7 +43,7 @@ describe('gear wear', () => {
     expect(broken.shield).toBeUndefined();
     expect(broken.armor.torso).toBe(0);
     expect(wearMod(100)).toBe(1);
-    expect(wearMod(0)).toBeCloseTo(0.6);
+    expect(wearMod(0)).toBeCloseTo(0.55);
   });
 
   it('repairs cost gold and restore durability; upgrades arrive in perfect condition', () => {

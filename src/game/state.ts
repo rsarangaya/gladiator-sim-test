@@ -113,6 +113,13 @@ export function spendPoint(s: Save, k: keyof Stats): boolean {
   return true;
 }
 
+/** Maimed limbs without a prosthetic are simply gone. */
+export function missingLimbs(s: Save): Partial<Record<Zone, boolean>> {
+  const out: Partial<Record<Zone, boolean>> = {};
+  for (const z of ['armW', 'armS', 'legL', 'legR'] as Zone[]) if (s.injuries[z] === 'maimed' && !s.prosthetics[z]) out[z] = true;
+  return out;
+}
+
 const LOSS = { bruised: 0.12, wounded: 0.35, maimed: 0.7 } as const;
 
 /** HP missing at the start of the next fight, from injuries not yet healed. */
@@ -141,7 +148,7 @@ export function playerSpec(s: Save): FighterSpec {
   for (const z of ZONES) armor[z] = g.armor[z] <= 0 ? 0 : (armor[z] + 6 * s.armorTier) * wearMod(g.armor[z]);
   return {
     name: s.name, human: true, classId: s.classId, level: level(s), stats: stats(s), weapon: w, shield, armor,
-    personality: c.personality, carriedHpLoss: carriedLoss(s),
+    personality: c.personality, carriedHpLoss: carriedLoss(s), missing: missingLimbs(s),
     skills: [...s.skills, ...(g.weapon > 0 ? s.perks.weapon : []), ...s.perks.armor],
   };
 }
@@ -317,7 +324,7 @@ export function prepareBout(s: Save, seed: number, pick = 1): Bout {
 
 /** Scouting estimate: win chance from practice bouts (fixed seeds, so it is the same every time you look). */
 const oddsCache = new Map<string, number>();
-const specKey = (f: FighterSpec) => `${f.name}|${JSON.stringify(f.stats)}|${f.weapon.dmg.toFixed(2)}|${f.weapon.name}|${JSON.stringify(f.armor)}|${f.shield?.absorb.toFixed(3)}|${JSON.stringify(f.carriedHpLoss ?? {})}`;
+const specKey = (f: FighterSpec) => `${f.name}|${JSON.stringify(f.stats)}|${f.weapon.dmg.toFixed(2)}|${f.weapon.name}|${JSON.stringify(f.armor)}|${f.shield?.absorb.toFixed(3)}|${JSON.stringify(f.carriedHpLoss ?? {})}|${JSON.stringify(f.missing ?? {})}`;
 export const ODDS = { samples: 40 }; // practice bouts per scouting estimate (tools lower this for speed)
 export function estimateOdds(player: FighterSpec, enemy: FighterSpec, n = ODDS.samples): number {
   const key = `${specKey(player)}>${specKey(enemy)}`;
@@ -356,7 +363,8 @@ export function settleBout(s: Save, b: Bout, r: FightResult): Outcome {
   s.fights++;
   for (const inj of r.injuries[0] as Injury[]) {
     if (rank(inj.tier) > rank(s.injuries[inj.zone])) s.injuries[inj.zone] = inj.tier;
-    if (inj.tier === 'maimed') text.push(`Your ${inj.zone} was maimed.`);
+    const zn = ({ head: 'head', torso: 'torso', armW: 'weapon arm', armS: 'shield arm', legL: 'left leg', legR: 'right leg' } as Record<Zone, string>)[inj.zone];
+    text.push(inj.tier === 'maimed' ? `Your ${zn} was maimed: it is gone until you get a prosthetic${permanentWounds(s) ? ' (permanent in this mode)' : ' or heal it'}.` : inj.tier === 'wounded' ? `Your ${zn} is wounded. Rest to heal it.` : `Your ${zn} is bruised.`);
   }
   if (r.method === 'death' && r.winner === 1) {
     s.alive = false;
@@ -597,10 +605,10 @@ function grantLoot(s: Save, bossName: string, rng: () => number, text: string[])
 /** Durability 0-100 per item. Armor wears per zone, where you actually get hit. */
 export interface Gear { weapon: number; shield: number; armor: Record<Zone, number> }
 export const freshGear = (): Gear => ({ weapon: 100, shield: 100, armor: { head: 100, torso: 100, armW: 100, armS: 100, legL: 100, legR: 100 } });
-export const WEAR = { weapon: 0.4, bash: 1.0, shieldBlock: 0.9, shieldDmg: 0.15, armorPerDmg: 0.4 };
+export const WEAR = { weapon: 0.6, bash: 1.5, shieldBlock: 1.3, shieldDmg: 0.3, armorPerDmg: 0.75 };
 export const REPAIR = { weapon: 0.5, shield: 0.35, armor: 0.2 };   // gold per missing durability point
-/** Full strength above 40% durability, fading to 60% strength as it nears breaking. */
-export const wearMod = (d: number) => (d >= 40 ? 1 : 0.6 + 0.4 * (d / 40));
+/** Full strength above 60% durability, fading to 55% strength as it nears breaking. */
+export const wearMod = (d: number) => (d >= 60 ? 1 : 0.55 + 0.45 * (d / 60));
 
 const ZONE_LABEL: Record<Zone, string> = { head: 'head', torso: 'torso', armW: 'weapon-arm', armS: 'shield-arm', legL: 'left-leg', legR: 'right-leg' };
 const MELEE = new Set(['light', 'heavy', 'hook', 'whirl', 'cleave']);
