@@ -78,9 +78,11 @@ export function simulateFight(a: FighterSpec, b: FighterSpec, seed: number, opts
   }
 
   // ---- hit resolution --------------------------------------------------------
-  function calcDamage(att: Runtime, def: Runtime, zone: Zone, act: ActionDef, crit: boolean): number {
+  function calcDamage(att: Runtime, def: Runtime, zone: Zone, act: ActionDef, crit: boolean, hand = 0): number {
     const s = att.spec.stats;
-    let d = att.weapon.dmg * act.dmgMult * (0.5 + s.str / 100) * ZONE_DMG_MULT[zone];
+    // each arm has its own strength: the weapon arm swings, the off arm bashes, throws the net and wields the second blade
+    const str = act.id === 'bash' ? s.strL : att.weapon.twoHanded ? (s.str + s.strL) / 2 : hand === 1 ? s.strL : s.str;
+    let d = att.weapon.dmg * act.dmgMult * (0.5 + str / 100) * ZONE_DMG_MULT[zone];
     d *= range(rng, 0.85, 1.15) * att.form * weaponArmMod(att) * TUNING.damageScale;
     if (att.stam / att.maxStam < 0.3) d *= 0.85;
     if (att.weapon.closeMin && Math.abs(att.x - def.x) < att.weapon.closeMin) d *= TUNING.crowdDmg;
@@ -135,16 +137,16 @@ export function simulateFight(a: FighterSpec, b: FighterSpec, seed: number, opts
       }
 
       const crit = chance(rng, TUNING.critBase + att.spec.stats.tec * TUNING.critPerTec + att.mods.crit);
-      let dmg = calcDamage(att, def, zone, act, crit);
+      let dmg = calcDamage(att, def, zone, act, crit, h);
       let result: FightEvent['result'] = crit ? 'crit' : 'hit';
 
       // block
       const guarding = def.act?.id === 'block' && def.frame >= 1 && def.frame < 9;
       if (guarding && canBlock(def) && !act.bypassBlock) {
         const sh = def.spec.shield!;
-        const pBlock = clamp(0.5 + def.spec.stats.tec / 400 + sh.block * 0.2 + def.mods.block, 0.3, 0.88) * blockMod(def);
+        const pBlock = clamp(0.5 + def.spec.stats.tec / 400 + sh.block * 0.2 + def.mods.block + (def.spec.stats.strL - 10) * 0.004, 0.3, 0.88) * blockMod(def);
         if (chance(rng, pBlock)) {
-          const absorb = Math.min(0.9, (sh.absorb * blockMod(def) + def.mods.absorb) * (act.id === 'cleave' ? 0.5 : 1));
+          const absorb = Math.min(0.9, (sh.absorb * blockMod(def) * clamp(0.8 + def.spec.stats.strL / 50, 0.7, 1.5) + def.mods.absorb) * (act.id === 'cleave' ? 0.5 : 1));
           const cost = dmg * 0.4;
           if (def.stam >= cost) {
             def.stam -= cost;
@@ -168,7 +170,7 @@ export function simulateFight(a: FighterSpec, b: FighterSpec, seed: number, opts
         // stun on heavy head blows
         if (zone === 'head' && dmg > def.max.head * 0.3) { interrupt(def, TUNING.stunTicks); statuses.push('stun'); }
         if (act.effect === 'stagger') { interrupt(def, TUNING.staggerTicks + att.mods.bashStun); statuses.push('stagger'); }
-        if (act.effect === 'snare') { def.snare = TUNING.netSnareTicks + att.mods.snare; statuses.push('snare'); }
+        if (act.effect === 'snare') { def.snare = TUNING.netSnareTicks + att.mods.snare + Math.round((att.spec.stats.strL - 10) * 1.5); statuses.push('snare'); }
         // Hamstring: leg strikes slow the target
         if (att.mods.legSlow && (zone === 'legL' || zone === 'legR') && def.snare < 40) { def.snare = 40; statuses.push('slow'); }
         // bleeding

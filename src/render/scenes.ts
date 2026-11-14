@@ -45,7 +45,7 @@ export function drawCharacter(c: CanvasRenderingContext2D, spec: FighterSpec, x:
 
 // ---- icons ---------------------------------------------------------------------------------
 export type IconKind = 'sword' | 'shield' | 'armor' | 'hammer' | 'leg' | 'scroll' | 'tent' | 'hourglass' | 'flag' | 'help' | 'menu' | 'coin' | 'bolt'
-  | 'str' | 'agi' | 'vit' | 'end' | 'tec' | 'spi' | 'skull' | 'trainer' | 'coliseum' | 'shop' | 'ground';
+  | 'flask' | 'str' | 'strL' | 'agi' | 'vit' | 'end' | 'tec' | 'spi' | 'skull' | 'trainer' | 'coliseum' | 'shop' | 'ground';
 export function icon(c: CanvasRenderingContext2D, k: IconKind, x: number, y: number, s: number) {
   c.save(); c.translate(x, y); c.scale(s / 32, s / 32); c.lineCap = 'round'; c.lineJoin = 'round';
   const ln = 2.6, dark = '#1d1511';
@@ -65,6 +65,8 @@ export function icon(c: CanvasRenderingContext2D, k: IconKind, x: number, y: num
     case 'coin': c.beginPath(); c.arc(0, 0, 11, 0, 7); c.fillStyle = '#e8b64e'; c.fill(); stroke('#a8741c', 2); c.beginPath(); c.arc(0, 0, 6, 0, 7); stroke('#a8741c', 1.6); break;
     case 'bolt': c.beginPath(); c.moveTo(3, -13); c.lineTo(-8, 2); c.lineTo(-1, 2); c.lineTo(-4, 13); c.lineTo(9, -4); c.lineTo(2, -4); c.closePath(); c.fillStyle = '#ffd24a'; c.fill(); stroke('#a8741c', 1.8); break;
     case 'str': c.beginPath(); c.moveTo(-12, 0); c.lineTo(12, 0); stroke('#9aa3ab', 3); for (const xx of [-12, 12]) { c.beginPath(); c.roundRect(xx - 3, -9, 6, 18, 2); c.fillStyle = '#4a4f55'; c.fill(); stroke('#2a2d31', 1.6); } break;
+    case 'flask': c.beginPath(); c.moveTo(-4, -13); c.lineTo(4, -13); c.lineTo(4, -5); c.lineTo(11, 9); c.quadraticCurveTo(12, 14, 6, 14); c.lineTo(-6, 14); c.quadraticCurveTo(-12, 14, -11, 9); c.lineTo(-4, -5); c.closePath(); c.fillStyle = '#8fd0c0'; c.fill(); stroke('#3a7a6a', 2); c.beginPath(); c.moveTo(-9, 6); c.lineTo(9, 6); c.lineTo(11, 9); c.quadraticCurveTo(12, 14, 6, 14); c.lineTo(-6, 14); c.quadraticCurveTo(-12, 14, -11, 9); c.closePath(); c.fillStyle = '#d0483a'; c.fill(); break;
+    case 'strL': c.save(); c.rotate(-0.5); c.beginPath(); c.moveTo(-8, 0); c.lineTo(8, 0); stroke('#9aa3ab', 3); for (const xx of [-8, 8]) { c.beginPath(); c.roundRect(xx - 3.5, -7, 7, 14, 2); c.fillStyle = '#c4713a'; c.fill(); stroke('#6a3a1a', 1.6); } c.restore(); break;
     case 'agi': c.beginPath(); c.moveTo(-10, 8); c.lineTo(-10, -4); c.lineTo(0, -8); c.lineTo(8, 0); c.lineTo(13, 3); c.lineTo(13, 9); c.closePath(); c.fillStyle = '#8a5a30'; c.fill(); stroke('#4a3322', 2); for (const yy of [-12, -8]) { c.beginPath(); c.moveTo(-16, yy + 1); c.lineTo(-12, yy + 1); stroke('#cfd6dc', 2); } break;
     case 'vit': c.beginPath(); c.moveTo(0, 12); c.bezierCurveTo(-18, -2, -8, -14, 0, -5); c.bezierCurveTo(8, -14, 18, -2, 0, 12); c.fillStyle = '#d0483a'; c.fill(); stroke('#7a1c14', 2); break;
     case 'end': c.beginPath(); c.arc(-5, 0, 7, 0, 7); c.arc(5, 0, 7, 0, 7); c.fillStyle = '#e8a0a8'; c.fill(); stroke('#a45a68', 2); c.beginPath(); c.moveTo(0, -12); c.lineTo(0, -2); stroke('#cfd6dc', 2.4); break;
@@ -256,18 +258,19 @@ export function speech(c: CanvasRenderingContext2D, text: string, x: number, y: 
 }
 
 // ---- training grounds -------------------------------------------------------------------------
-export type StatKey = 'str' | 'agi' | 'vit' | 'end' | 'tec' | 'spi';
+export type StatKey = 'str' | 'strL' | 'agi' | 'vit' | 'end' | 'tec' | 'spi';
 export const STATIONS: { id: StatKey; x: number; label: string; what: string }[] = [
-  { id: 'str', x: 85, label: 'WEIGHTS', what: 'Lift weights' },
-  { id: 'agi', x: 240, label: 'TRACK', what: 'Sprint laps' },
-  { id: 'vit', x: 395, label: 'LOGS', what: 'Carry logs' },
-  { id: 'end', x: 550, label: 'ROPES', what: 'Skip rope' },
-  { id: 'tec', x: 705, label: 'DUMMY', what: 'Sword forms' },
-  { id: 'spi', x: 860, label: 'BRAZIER', what: 'Meditate' },
+  { id: 'str', x: 68, label: 'R-ARM', what: 'Weapon-arm press' },
+  { id: 'strL', x: 201, label: 'L-ARM', what: 'Off-arm curls' },
+  { id: 'agi', x: 334, label: 'TRACK', what: 'Sprint laps' },
+  { id: 'vit', x: 467, label: 'LOGS', what: 'Carry logs' },
+  { id: 'end', x: 600, label: 'ROPES', what: 'Skip rope' },
+  { id: 'tec', x: 733, label: 'DUMMY', what: 'Sword forms' },
+  { id: 'spi', x: 866, label: 'BRAZIER', what: 'Meditate' },
 ];
 export const GROUND_SPOTS: Spot[] = [
-  ...STATIONS.map((s) => ({ id: s.id as string, x: s.x - 74, y: 190, w: 148, h: 240 })),
-  { id: 'trainer', x: 275, y: 430, w: 84, h: 110 },
+  ...STATIONS.map((s) => ({ id: s.id as string, x: s.x - 62, y: 190, w: 124, h: 240 })),
+  { id: 'trainer', x: 225, y: 430, w: 84, h: 110 },
 ];
 
 /** One training station, centered at x with its feet on y. Drawn small for the yard, large for the exercise backdrop. */
@@ -282,6 +285,12 @@ export function stationProp(c: CanvasRenderingContext2D, k: StatKey, x: number, 
       c.strokeStyle = dk; c.lineWidth = 9; c.beginPath(); c.moveTo(-84, -96); c.lineTo(84, -96); c.stroke(); c.strokeStyle = '#9aa3ab'; c.lineWidth = 5; c.beginPath(); c.moveTo(-84, -96); c.lineTo(84, -96); c.stroke();
       for (const xx of [-78, -64, 64, 78]) { c.fillStyle = '#3d4248'; c.strokeStyle = dk; c.lineWidth = 2.5; c.beginPath(); c.roundRect(xx - 5, -118, 10, 44, 3); c.fill(); c.stroke(); }
       c.fillStyle = '#4a4f55'; c.strokeStyle = dk; c.lineWidth = 3; for (let i = 0; i < 3; i++) { c.beginPath(); c.ellipse(-30 + i * 6, -8 - i * 9, 22, 8, 0, 0, 7); c.fill(); c.stroke(); }
+      break;
+    }
+    case 'strL': { // dumbbell rack
+      c.fillStyle = '#5a3f28'; c.strokeStyle = dk; c.lineWidth = 3; c.fillRect(-52, -70, 104, 8); c.strokeRect(-52, -70, 104, 8); c.fillRect(-52, -30, 104, 8); c.strokeRect(-52, -30, 104, 8); c.fillRect(-52, -70, 8, 70); c.strokeRect(-52, -70, 8, 70); c.fillRect(44, -70, 8, 70); c.strokeRect(44, -70, 8, 70);
+      for (const [yy, r] of [[-80, 9], [-40, 12]] as [number, number][]) for (let i = 0; i < 3; i++) { const xx = -30 + i * 30; c.strokeStyle = dk; c.lineWidth = 3; c.beginPath(); c.moveTo(xx - 10, yy); c.lineTo(xx + 10, yy); c.stroke(); c.fillStyle = '#c4713a'; for (const dx of [-12, 12]) { c.beginPath(); c.roundRect(xx + dx - 3.5, yy - r * 0.8, 7, r * 1.6, 2); c.fill(); c.stroke(); } }
+      c.fillStyle = '#4a4f55'; c.beginPath(); c.ellipse(0, -4, 20, 6, 0, 0, 7); c.fill(); c.stroke();
       break;
     }
     case 'agi': {

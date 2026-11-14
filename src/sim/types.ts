@@ -8,7 +8,8 @@ export type ActionId =
   | 'light' | 'heavy' | 'block' | 'dodge' | 'advance' | 'retreat' | 'rest'
   | 'bash' | 'hook' | 'wall' | 'net' | 'whirl' | 'cleave';
 
-export interface Stats { str: number; agi: number; vit: number; end: number; tec: number; spi: number }
+/** str = weapon-arm strength, strL = off-arm strength (shield, second blade, net) */
+export interface Stats { str: number; strL: number; agi: number; vit: number; end: number; tec: number; spi: number }
 
 export interface WeaponDef {
   name: string;

@@ -1,12 +1,14 @@
 import { CLASSES, makeSpec } from '../data/classes';
 import { SKILLS, canLearn, skillsFor, type SkillDef } from '../data/skills';
 import {
-  MAX_ENERGY, permanentWounds, PROSTHETIC_COST, REST_GOLD, START_POINTS, STAT_KEYS, TIER_COSTS,
+  MAX_ENERGY, STAT_SHORT, buyItem, dropItem, setHand, useItem, permanentWounds, PROSTHETIC_COST, REST_GOLD, START_POINTS, STAT_KEYS, TIER_COSTS,
   actionRng, hireTrainer, trainerCost, buyProsthetic, buyTier, clearSave, level, loadGame, newGame, openBout, rest, runBout, saveGame,
   settleBout, spendPoint, stats, train, type Bout, type Difficulty, type Save, type Mode,
   learnSkill, CAREER_SIZES, PRELIMS, RARITIES, acceptEncounter, declineEncounter, encounterSpec, estimateOdds, gearCondition, inPrelims, playerSpec, repair, repairCost, scout, waitCost, ladderRank, loadScores, retire, score, waitDay,
 } from '../game/state';
 import { drawPortrait } from '../render/portrait';
+import { INV_SLOTS, ITEMS, ITEM_IDS } from '../data/items';
+import { bagHtml } from './bag';
 import { EXERCISE_MS, drawExercise, drawGain } from '../render/exercise';
 import { IDLE, lookFor, pose } from '../render/rig';
 import {
@@ -23,9 +25,9 @@ const app = document.getElementById('app')!;
 let save: Save | null = loadGame();
 let msg = '';
 
-const STAT_LABEL: Record<keyof Stats, string> = { str: 'Strength', agi: 'Agility', vit: 'Vitality', end: 'Endurance', tec: 'Technique', spi: 'Spirit' };
+const STAT_LABEL: Record<keyof Stats, string> = { str: 'Right arm', strL: 'Left arm', agi: 'Agility', vit: 'Vitality', end: 'Endurance', tec: 'Technique', spi: 'Spirit' };
 const STAT_HINT: Record<keyof Stats, string> = {
-  str: 'damage', agi: 'hit, dodge, speed', vit: 'health', end: 'stamina', tec: 'crits, aim, blocking', spi: 'will to fight on',
+  str: 'weapon-hand damage', strL: 'shield blocks, second blade, net', agi: 'hit, dodge, speed', vit: 'health', end: 'stamina', tec: 'crits, aim, blocking', spi: 'will to fight on',
 };
 const ZONE_LABEL: Record<Zone, string> = { head: 'Head', torso: 'Torso', armW: 'Weapon arm', armS: 'Shield arm', legL: 'Left leg', legR: 'Right leg' };
 
@@ -76,7 +78,7 @@ function create() {
   let diff: Difficulty = 'normal';
   let mode: Mode = 'free';
   let size = 10;
-  const alloc: Stats = { str: 0, agi: 0, vit: 0, end: 0, tec: 0, spi: 0 };
+  const alloc: Stats = { str: 0, strL: 0, agi: 0, vit: 0, end: 0, tec: 0, spi: 0 };
   const left = () => START_POINTS - STAT_KEYS.reduce((a, k) => a + alloc[k], 0);
 
   const render = () => {
@@ -87,7 +89,7 @@ function create() {
       <div class="grid">${CLASS_IDS.map((id) => `<div class="card pick ${id === classId ? 'sel' : ''}" data-c="${id}">
         <canvas data-pv="${id}" width="76" height="104" style="float:left;margin-right:10px;border-radius:8px;width:76px;height:104px"></canvas><b>${CLASSES[id].label}</b><div class="dim">${CLASSES[id].blurb}</div><div class="pc"><span class="pro">+ ${CLASSES[id].pros}</span><span class="con">- ${CLASSES[id].cons}</span></div><div class="dim">Signature: ${CLASSES[id].signature}</div></div>`).join('')}</div>
       <h2 style="margin-top:12px">Stat points: ${left()} left</h2>
-      ${STAT_KEYS.map((k) => `<div class="stat"><b>${k.toUpperCase()}</b><span style="width:170px">${STAT_LABEL[k]} <span class="dim">(${STAT_HINT[k]})</span></span>
+      ${STAT_KEYS.map((k) => `<div class="stat"><b style="width:64px">${STAT_SHORT[k]}</b><span style="width:170px">${STAT_LABEL[k]} <span class="dim">(${STAT_HINT[k]})</span></span>
         <button data-m="${k}">−</button><span style="width:30px;text-align:center">${c.base[k] + alloc[k]}</span><button data-p="${k}">+</button></div>`).join('')}
       <div class="row"><label>Mode:</label>
         <button data-mode="free-normal" class="${mode === 'free' && diff === 'normal' ? 'on' : ''}">Free · Normal (all injuries heal)</button>
@@ -153,7 +155,7 @@ function topBar(s: Save) {
 
 function chips(s: Save) {
   const st = stats(s);
-  return STAT_KEYS.map((k) => `<div class="chip" title="${STAT_LABEL[k]}: ${STAT_HINT[k]}">${iconHtml(k, 22)}<b>${st[k]}</b>${s.unspent > 0 ? `<button class="plus" data-sp="${k}" title="Spend a stat point">+</button>` : ''}</div>`).join('');
+  return STAT_KEYS.map((k) => `<div class="chip" title="${STAT_LABEL[k]}: ${STAT_HINT[k]}">${iconHtml(k as IconKind, 22)}<b>${st[k]}</b>${s.unspent > 0 ? `<button class="plus" data-sp="${k}" title="Spend a stat point">+</button>` : ''}</div>`).join('');
 }
 
 function wireStatButtons(s: Save, refresh: () => void) {
@@ -228,11 +230,11 @@ function training() {
   scene.spots = GROUND_SPOTS;
   scene.draw = (c, t, hover) => {
     drawGrounds(c, t, hover, canTrain, vals);
-    drawCharacter(c, tr, 317, 540, 0.95, { t, armed: false, pose: TRAINER_POSE, look: SHOPKEEPER_LOOK(tr) });
-    drawCharacter(c, spec, 472, 540, 0.95, { t, injuries: s.injuries, prosthetics: s.prosthetics });
+    drawCharacter(c, tr, 267, 540, 0.95, { t, armed: false, pose: TRAINER_POSE, look: SHOPKEEPER_LOOK(tr) });
+    drawCharacter(c, spec, 533, 540, 0.95, { t, injuries: s.injuries, prosthetics: s.prosthetics });
     const st = STATIONS.find((x) => x.id === hover);
-    if (st) speech(c, `${st.what}: +1 ${st.id.toUpperCase()} (1 energy)`, Math.min(st.x - 40, 700), 190, 260);
-    else if (hover === 'trainer') speech(c, `Hire me: +2 stat points for ${trainerCost(s)} gold.`, 250, 420, 260);
+    if (st) speech(c, `${st.what}: +1 ${st.label} (1 energy)`, Math.min(st.x - 40, 700), 190, 260);
+    else if (hover === 'trainer') speech(c, `Hire me: +2 stat points for ${trainerCost(s)} gold.`, 200, 420, 260);
   };
   scene.onClick = (id) => {
     if (id === 'trainer') {
@@ -260,7 +262,7 @@ function startExercise(stat: StatKey) {
     if (!applied) { applied = true; result = train(s, stat, actionRng(s, stat)); gain = stats(s)[stat] - before; msg = result; commit(); }
     drawExercise(c, stat, 0.999, t, spec, { injuries: s.injuries, prosthetics: s.prosthetics });
     const hurt = /strained/.test(result);
-    drawGain(c, gain > 0 ? `+${gain} ${stat.toUpperCase()}` : 'No gain', hurt ? '#ff6a50' : gain > 1 ? '#ffd24a' : gain > 0 ? '#9be37a' : '#cfc6b0', Math.min(1, (el - EXERCISE_MS) / 1000), stat);
+    drawGain(c, gain > 0 ? `+${gain} ${STAT_SHORT[stat]}` : 'No gain', hurt ? '#ff6a50' : gain > 1 ? '#ffd24a' : gain > 0 ? '#9be37a' : '#cfc6b0', Math.min(1, (el - EXERCISE_MS) / 1000), stat);
     if (el > EXERCISE_MS + 1050) { scene.draw = () => {}; training(); }
   };
 }
@@ -282,6 +284,11 @@ function equipment(back: () => void = hub) {
       <div class="paper"><canvas id="eqpv" width="220" height="330" style="width:220px;height:330px"></canvas><div class="dim" style="text-align:center">${s.name} · Lv ${level(s)} ${CLASSES[s.classId].label}</div></div>
       <div class="slots">
         ${injuryPanel(s)}
+        <h3>Weapon hand</h3>
+        <div class="hand"><button id="hR" class="${s.lefty ? '' : 'pri'}">Right hand (arm ${stats(s).str})</button><button id="hL" class="${s.lefty ? 'pri' : ''}">Left hand (arm ${stats(s).strL})</button><span class="dim">The weapon uses that arm's strength; the shield or off hand uses the other.</span></div>
+        <h3>Bag ${(s.inv ?? []).length}/${INV_SLOTS}</h3>
+        ${bagHtml(s, iconHtml)}
+        <div class="msg">${msg}</div>
         <h3>Weapon</h3>
         ${slot('sword', `${RARITIES[s.weaponTier]} ${w.name}`, `Damage ${Math.round(w.dmg)} · Reach ${w.reach.toFixed(1)} · Speed ${w.speed.toFixed(2)}${s.loot?.weapon ? ' · ' + s.loot.weapon : ''}`, g.weapon, perks(s.perks.weapon))}
         ${spec.shield ? slot('shield', spec.shield.name, `Blocks ${Math.round(spec.shield.block * 100)}% · Absorbs ${Math.round(spec.shield.absorb * 100)}%`, g.shield) : ''}
@@ -291,6 +298,9 @@ function equipment(back: () => void = hub) {
     </div>
     <div class="icons"><button class="ibtn" id="repairall">${iconHtml('hammer', 22)}<small>Repair all · ${repairCost(s, 'all')}g (shop)</small></button><button class="ibtn" id="back">${iconHtml('ground', 22)}<small>Back</small></button></div></div>`);
   fillIcons();
+  document.querySelectorAll<HTMLElement>('[data-use]').forEach((b) => (b.onclick = () => { msg = useItem(s, Number(b.dataset.use)); commit(); equipment(back); }));
+  document.querySelectorAll<HTMLElement>('[data-drop]').forEach((b) => (b.onclick = () => { dropItem(s, Number(b.dataset.drop)); commit(); equipment(back); }));
+  on('hR', () => { setHand(s, false); commit(); equipment(back); }); on('hL', () => { setHand(s, true); commit(); equipment(back); });
   const cv = document.getElementById('eqpv') as HTMLCanvasElement;
   drawPortrait(cv, spec, { injuries: s.injuries, prosthetics: s.prosthetics });
   on('back', back);
@@ -311,6 +321,7 @@ function shop() {
     ...(gearCondition(s).shield !== null ? [good('shield', 'Repair shield', 'Dents hammered out', `${repairCost(s, 'shield')}g`, 'rps', !repairCost(s, 'shield'))] : []),
     good('armor', 'Repair armor', 'Every plate and strap', `${repairCost(s, 'armor')}g`, 'rpa', !repairCost(s, 'armor')),
     good('hammer', 'Repair everything', 'The full overhaul', `${repairCost(s, 'all')}g`, 'rpall', !repairCost(s, 'all')),
+    ...ITEM_IDS.map((id) => good(ITEMS[id].icon, ITEMS[id].name, ITEMS[id].desc, `${ITEMS[id].price}g`, 'bi_' + id, (s.inv ?? []).length >= INV_SLOTS)),
     ...maimed.map((z) => good('leg', `${ZONE_LABEL[z]} prosthetic`, 'Halves the lasting damage', s.prosthetics[z] ? 'Fitted' : `${PROSTHETIC_COST}g`, 'pz_' + z, !!s.prosthetics[z])),
   ];
   html(`<div class="town">${topBar(s)}
@@ -338,6 +349,7 @@ function shop() {
   const buy = (fn: () => string) => () => { shopMsg = fn(); commit(); shop(); };
   on('bw', buy(() => buyTier(s, 'weapon'))); on('ba', buy(() => buyTier(s, 'armor')));
   on('rpw', buy(() => repair(s, 'weapon'))); on('rps', buy(() => repair(s, 'shield'))); on('rpa', buy(() => repair(s, 'armor'))); on('rpall', buy(() => repair(s, 'all')));
+  ITEM_IDS.forEach((id) => on('bi_' + id, buy(() => buyItem(s, id))));
   maimed.forEach((z) => on('pz_' + z, buy(() => buyProsthetic(s, z))));
   on('back', () => { shopMsg = ''; msg = ''; hub(); });
 }

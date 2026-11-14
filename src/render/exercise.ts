@@ -46,6 +46,21 @@ export function drawExercise(c: CanvasRenderingContext2D, stat: StatKey, p: numb
       if (u > 0.92) for (let i = 0; i < 3; i++) { c.fillStyle = 'rgba(200,230,255,.7)'; c.beginPath(); c.arc(CX - 30 + i * 12, CY - 330 + Math.sin(t * 9 + i) * 3, 3, 0, 7); c.fill(); }
       break;
     }
+    case 'strL': { // off-arm curls with a dumbbell, three reps
+      backdrop(c, t);
+      stationProp(c, 'strL', 760, 470, 1.6, t, false);
+      const u = 0.5 - 0.5 * Math.cos(Math.PI * 2 * 3 * p);
+      const fl = 18 + 150 * u * e;
+      const pz = pose({ lean: 1, drop: 0, wU: 14, wL: 20, sU: 12, sL: fl, fU: 20, fL: 4, bU: -20, bL: -4, head: -2 * u });
+      drawCharacter(c, spec, CX, CY, SC, { ...opts, pose: pz });
+      c.save(); c.translate(CX, CY); c.scale(SC, SC);
+      const hip = 30 * Math.cos(20 * D2R) + 30 * Math.cos(4 * D2R), sy = -hip - 39;
+      const hx = -13 + 23 * Math.sin(12 * D2R) + 23 * Math.sin(fl * D2R), hy = sy + 23 * Math.cos(12 * D2R) + 23 * Math.cos(fl * D2R);
+      c.strokeStyle = '#1d1511'; c.lineWidth = 5; c.lineCap = 'round'; c.beginPath(); c.moveTo(hx - 9, hy); c.lineTo(hx + 9, hy); c.stroke();
+      for (const dx of [-10, 10]) { c.fillStyle = '#c4713a'; c.strokeStyle = '#1d1511'; c.lineWidth = 2.2; c.beginPath(); c.roundRect(hx + dx - 4, hy - 8, 8, 16, 3); c.fill(); c.stroke(); }
+      c.restore();
+      break;
+    }
     case 'agi': { // sprinting on the spot while the track streams past
       const speed = 0.35 + 0.65 * Math.sin(Math.PI * p) ** 0.6;
       backdrop(c, t, t * 900 * speed);

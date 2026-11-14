@@ -1,15 +1,17 @@
 // Game progression: pure logic, no DOM. UI calls these and re-renders.
 import { CLASSES, SHIELDS, WEAPONS, scaleStats } from '../data/classes';
 import { PERKS, SKILLS, canLearn, enemySkills, nameKey } from '../data/skills';
+import { INV_SLOTS, ITEMS, ITEM_IDS, type ItemId } from '../data/items';
 import { mulberry32 } from '../sim/rng';
 import { zoneMax } from '../sim/fighter';
 import { simulateFight } from '../sim/sim';
 import { CLASS_IDS, ZONES, type ClassId, type FightResult, type FighterSpec, type Injury, type InjuryTier, type Personality, type Stats, type Zone } from '../sim/types';
 
 export type Difficulty = 'normal' | 'hard';
-export const STAT_KEYS: (keyof Stats)[] = ['str', 'agi', 'vit', 'end', 'tec', 'spi'];
+export const STAT_KEYS: (keyof Stats)[] = ['str', 'strL', 'agi', 'vit', 'end', 'tec', 'spi'];
+export const STAT_SHORT: Record<keyof Stats, string> = { str: 'R-ARM', strL: 'L-ARM', agi: 'AGI', vit: 'VIT', end: 'END', tec: 'TEC', spi: 'SPI' };
 /** Spirit does not add fighting power, so it is left out of power budgets. */
-export const POWER_KEYS: (keyof Stats)[] = ['str', 'agi', 'vit', 'end', 'tec'];
+export const POWER_KEYS: (keyof Stats)[] = ['str', 'strL', 'agi', 'vit', 'end', 'tec'];
 export const MAX_ENERGY = 3;
 export const START_POINTS = 12;
 
@@ -39,6 +41,9 @@ export const waitCost = (s: { day: number; bedridden?: number }) => (s.bedridden
 
 export interface Save {
   v: 1;
+  inv?: ItemId[];       // carried supplies (INV_SLOTS)
+  lefty?: boolean;      // weapon in the left hand (swaps which arm's strength it uses)
+  draught?: boolean;    // spirit draught active for the next fight
   name: string;
   classId: ClassId;
   difficulty: Difficulty;
@@ -86,14 +91,14 @@ export const REST_GOLD = 12;
 export const PROSTHETIC_COST = 140;
 
 export function newGame(name: string, classId: ClassId, difficulty: Difficulty, alloc: Partial<Stats> = {}, mode: Mode = 'free', seed = 1, size = 10): Save {
-  const added: Stats = { str: 0, agi: 0, vit: 0, end: 0, tec: 0, spi: 0 };
+  const added: Stats = { str: 0, strL: 0, agi: 0, vit: 0, end: 0, tec: 0, spi: 0 };
   let spent = 0;
   for (const k of STAT_KEYS) {
     const v = Math.max(0, Math.floor(alloc[k] ?? 0));
     if (spent + v <= START_POINTS) { added[k] = v; spent += v; }
   }
   return {
-    v: 1, name: name.trim() || 'Nameless', classId, difficulty, added, unspent: START_POINTS - spent,
+    v: 1, name: name.trim() || 'Nameless', classId, difficulty, added, inv: [], lefty: false, unspent: START_POINTS - spent,
     gold: 40, energy: MAX_ENERGY, day: 1, wins: 0, fights: 0, xp: 0,
     weaponTier: 0, armorTier: 0, injuries: {}, prosthetics: {}, tutorialDone: mode === 'career', alive: true, best: 0,
     mode, career: mode === 'career' ? makeCareer(mulberry32(seed), size) : undefined, gear: freshGear(), news: [], sick: 0, bedridden: 0, runSeed: Math.imul(seed + 1, 2654435761) >>> 0, neglect: 0, skills: [], skillPoints: 2, perks: { weapon: [], armor: [] }, trainerBuys: 0,
@@ -103,7 +108,7 @@ export function newGame(name: string, classId: ClassId, difficulty: Difficulty, 
 export const level = (s: Save) => 1 + Math.floor(s.xp / 3);
 export const stats = (s: Save): Stats => {
   const b = CLASSES[s.classId].base;
-  return { str: b.str + s.added.str, agi: b.agi + s.added.agi, vit: b.vit + s.added.vit, end: b.end + s.added.end, tec: b.tec + s.added.tec, spi: b.spi + s.added.spi };
+  return { str: b.str + s.added.str, strL: b.strL + s.added.strL, agi: b.agi + s.added.agi, vit: b.vit + s.added.vit, end: b.end + s.added.end, tec: b.tec + s.added.tec, spi: b.spi + s.added.spi };
 };
 export const totalPoints = (s: Save) => POWER_KEYS.reduce((a, k) => a + stats(s)[k], 0);
 
@@ -136,6 +141,14 @@ export function carriedLoss(s: Save): Partial<Record<Zone, number>> {
   return out;
 }
 
+/** Stats as the sim sees them: handedness swaps the arms, a spirit draught adds spirit. */
+export function fightStats(s: Save): Stats {
+  const st = stats(s);
+  const out = s.lefty ? { ...st, str: st.strL, strL: st.str } : { ...st };
+  if (s.draught) out.spi += 8;
+  return out;
+}
+
 export function playerSpec(s: Save): FighterSpec {
   const c = CLASSES[s.classId];
   const g = s.gear;
@@ -147,7 +160,7 @@ export function playerSpec(s: Save): FighterSpec {
   const armor = { ...c.armor };
   for (const z of ZONES) armor[z] = g.armor[z] <= 0 ? 0 : (armor[z] + 6 * s.armorTier) * wearMod(g.armor[z]);
   return {
-    name: s.name, human: true, classId: s.classId, level: level(s), stats: stats(s), weapon: w, shield, armor,
+    name: s.name, human: true, classId: s.classId, level: level(s), stats: fightStats(s), weapon: w, shield, armor,
     personality: c.personality, carriedHpLoss: carriedLoss(s), missing: missingLimbs(s),
     skills: [...s.skills, ...(g.weapon > 0 ? s.perks.weapon : []), ...s.perks.armor],
   };
@@ -224,10 +237,10 @@ export function train(s: Save, k: keyof Stats, rng: () => number): string {
   if (stats(s)[k] >= 100) return 'That stat is maxed.';
   s.energy--;
   // past 40 a stat only improves about half the time (diminishing returns)
-  if (stats(s)[k] >= 40 && rng() < 0.5) return `Training: no progress today (${k.toUpperCase()} is already high).`;
+  if (stats(s)[k] >= 40 && rng() < 0.5) return `Training: no progress today (${STAT_SHORT[k]} is already high).`;
   const gain = rng() < 0.25 ? 2 : 1;
   s.added[k] += gain;
-  let result = `Training: +${gain} ${k.toUpperCase()}${gain === 2 ? ' (great session!)' : ''}`;
+  let result = `Training: +${gain} ${STAT_SHORT[k]}${gain === 2 ? ' (great session!)' : ''}`;
   if (rng() < 0.07) { // a training mishap
     const z = (['armW', 'armS', 'legL', 'legR'] as Zone[])[Math.floor(rng() * 4)];
     const tier: InjuryTier = rng() < 0.3 ? 'wounded' : 'bruised';
@@ -312,7 +325,7 @@ export function prepareBout(s: Save, seed: number, pick = 1): Bout {
   if (s.mode === 'career' && s.career) {
     const c = s.career;
     // Sparring: a safe, weaker bout that pays little but cannot hurt your ranking. It breaks rematch loops.
-    if (pick === 0 && !inPrelims(c)) return { ...base, player, enemy: makeEnemy(s, rng, false, 0.8, 0), reward: 0.5, spar: true, label: 'Sparring match (no effect on your ranking)' };
+    if (pick === 0 && !inPrelims(c)) return { ...base, player, enemy: makeEnemy(s, rng, false, 0.58, 0), reward: 0.5, spar: true, label: 'Sparring match (no effect on your ranking)' };
     if (inPrelims(c)) return { ...base, player, enemy: ladderSpec(c.prelim[c.prelimWins], (s.oppMod ?? 1) * rivalDrift(s)), label: `Qualifier ${c.prelimWins + 1} of ${c.prelim.length}` };
     if (!c.champion) return { ...base, player, enemy: ladderSpec(c.ladder[c.beaten], (s.oppMod ?? 1) * rivalDrift(s)), label: `Ladder fight: rank ${ladderRank(s)}` };
     return { ...base, player, enemy: challenger(c, rng), label: `Title defense #${c.defenses + 1}` };
@@ -356,6 +369,7 @@ export interface Outcome { won: boolean; text: string[] }
 export function settleBout(s: Save, b: Bout, r: FightResult): Outcome {
   const text: string[] = [];
   delete s.pending;
+  s.draught = false;
   const won = r.winner === 0;
   const c = s.career;
   const special = !!s.encounter?.accepted;
@@ -493,8 +507,9 @@ function rollEvent(s: Save) {
   if (rng() < 0.2) {
     const roll = rng() * 100;
     if (roll < 28) {
-      const g = 15 + Math.floor(rng() * 40);
-      s.gold += g; s.news.push(`A patron tosses you a purse: +${g} gold.`);
+      const gift = ITEM_IDS[Math.floor(rng() * ITEM_IDS.length)];
+      if (rng() < 0.35 && addItem(s, gift)) s.news.push(`A patron sends you a gift: ${ITEMS[gift].name}.`);
+      else { const g = 15 + Math.floor(rng() * 40); s.gold += g; s.news.push(`A patron tosses you a purse: +${g} gold.`); }
     } else if (roll < 44) {
       if (s.gear.weapon < 100) s.gear.weapon = 100; else for (const z of ZONES) s.gear.armor[z] = Math.min(100, s.gear.armor[z] + 25);
       s.news.push('A sponsoring smith tunes up your gear for free.');
@@ -583,6 +598,8 @@ export function rollTier(s: Save, rng: () => number, boss: boolean): number {
 }
 
 function grantLoot(s: Save, bossName: string, rng: () => number, text: string[]) {
+  const bonus = ITEM_IDS[Math.floor(rng() * ITEM_IDS.length)];
+  if (addItem(s, bonus)) text.push(`Spoils: you also take a ${ITEMS[bonus].name}.`);
   const tier = rollTier(s, rng, true);
   const slot: 'weapon' | 'armor' = s.weaponTier < s.armorTier ? 'weapon' : s.armorTier < s.weaponTier ? 'armor' : rng() < 0.5 ? 'weapon' : 'armor';
   const cur = slot === 'weapon' ? s.weaponTier : s.armorTier;
@@ -697,7 +714,7 @@ export function loadGame(): Save | null {
     if (s && s.v === 1) {
       s.mode ??= 'free';
       s.gear ??= freshGear();
-      s.added.spi ??= 0;
+      s.added.spi ??= 0; s.added.strL ??= 0; s.inv ??= [];
       s.news ??= []; s.sick ??= 0; s.bedridden ??= 0; s.runSeed ??= 1; s.neglect ??= 0; s.skills ??= []; s.skillPoints ??= 0; s.trainerBuys ??= 0; s.perks ??= { weapon: [], armor: [] };
       if (s.career && !s.career.prelim) { s.career.prelim = []; s.career.prelimWins = 0; s.career.size ??= s.career.ladder.length; }
       return s;
@@ -706,3 +723,48 @@ export function loadGame(): Save | null {
   } catch { return null; }
 }
 export const clearSave = () => { try { localStorage.removeItem(KEY); } catch { /* ignore */ } };
+
+// ---- inventory -----------------------------------------------------------------------------------
+export function addItem(s: Save, id: ItemId): boolean {
+  s.inv ??= [];
+  if (s.inv.length >= INV_SLOTS) return false;
+  s.inv.push(id);
+  return true;
+}
+export function buyItem(s: Save, id: ItemId): string {
+  const d = ITEMS[id];
+  if ((s.inv ?? []).length >= INV_SLOTS) return 'Your bag is full.';
+  if (s.gold < d.price) return `${d.name} costs ${d.price} gold.`;
+  s.gold -= d.price; addItem(s, id);
+  return `Bought ${d.name}.`;
+}
+export function dropItem(s: Save, idx: number) { s.inv?.splice(idx, 1); }
+export function useItem(s: Save, idx: number): string {
+  const id = s.inv?.[idx];
+  if (!id) return '';
+  let msg = '';
+  switch (id) {
+    case 'salve': {
+      const z = ZONES.find((zz) => s.injuries[zz] === 'wounded') ?? ZONES.find((zz) => s.injuries[zz] === 'bruised');
+      if (!z) return 'You have nothing to treat.';
+      delete s.injuries[z]; msg = `The salve treats your ${z === 'armW' ? 'weapon arm' : z === 'armS' ? 'shield arm' : z === 'legL' ? 'left leg' : z === 'legR' ? 'right leg' : z}.`; break;
+    }
+    case 'whetstone':
+      if (s.gear.weapon >= 100) return 'Your weapon is already sharp.';
+      s.gear.weapon = Math.min(100, s.gear.weapon + 40); msg = 'You hone your weapon.'; break;
+    case 'patch': {
+      if (ZONES.every((z) => s.gear.armor[z] >= 100) && s.gear.shield >= 100) return 'Your armor is already sound.';
+      for (const z of ZONES) s.gear.armor[z] = Math.min(100, s.gear.armor[z] + 30);
+      s.gear.shield = Math.min(100, s.gear.shield + 30); msg = 'You patch your armor and shield.'; break;
+    }
+    case 'tonic':
+      if (s.energy >= MAX_ENERGY) return 'You are already full of energy.';
+      s.energy++; msg = 'You feel refreshed: +1 energy.'; break;
+    case 'draught':
+      if (s.draught) return 'You are already steeled for the next fight.';
+      s.draught = true; msg = 'Your spirit is steeled for the next fight.'; break;
+  }
+  s.inv!.splice(idx, 1);
+  return msg;
+}
+export function setHand(s: Save, lefty: boolean) { s.lefty = lefty; }
