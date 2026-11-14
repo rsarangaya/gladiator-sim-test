@@ -433,12 +433,27 @@ export class Viewer {
     for (const i of [0, 1] as const) if (now < this.fs[i].snareUntil) this.mesh(c, this.pos(i), FLOOR - 62, 52, 0.6);
   }
 
+  /** A rope net: diamond weave with knots, a heavy rim and lead weights. */
   private mesh(c: CanvasRenderingContext2D, x: number, y: number, r: number, a: number) {
-    c.save(); c.translate(x, y); c.strokeStyle = `rgba(230,220,190,${a})`; c.fillStyle = `rgba(230,220,190,${a * 0.18})`; c.lineWidth = 1.6;
-    c.beginPath(); c.ellipse(0, 0, r * 0.8, r, 0, 0, 7); c.fill(); c.stroke();
+    const rx = r * 0.85, ry = r, step = r * 0.34, wob = Math.sin(x * 0.05 + r) * 0.04;
+    c.save(); c.translate(x, y); c.rotate(wob); c.globalAlpha = Math.min(1, a + 0.2);
+    c.beginPath(); c.ellipse(0, 0, rx, ry, 0, 0, 7); c.fillStyle = 'rgba(40,30,18,.22)'; c.fill();
+    c.save(); c.clip();
+    c.strokeStyle = '#e6d9b4'; c.lineWidth = Math.max(1.2, r * 0.05); c.lineCap = 'round';
     c.beginPath();
-    for (let k = -3; k <= 3; k++) { c.moveTo(k * r * 0.25, -r); c.lineTo(k * r * 0.25, r); c.moveTo(-r * 0.8, k * r * 0.3); c.lineTo(r * 0.8, k * r * 0.3); }
-    c.stroke(); c.restore();
+    for (let k = -8; k <= 8; k++) { c.moveTo(-rx * 1.2 + k * step, -ry * 1.2); c.lineTo(rx * 1.2 + k * step, ry * 1.2); c.moveTo(rx * 1.2 + k * step, -ry * 1.2); c.lineTo(-rx * 1.2 + k * step, ry * 1.2); }
+    c.stroke();
+    c.fillStyle = '#b89a62';
+    for (let gx = -8; gx <= 8; gx++) for (let gy = -8; gy <= 8; gy++) {
+      const kx = gx * step, ky = gy * step; if ((gx + gy) & 1) continue;
+      if ((kx / rx) ** 2 + (ky / ry) ** 2 < 0.9) { c.beginPath(); c.arc(kx, ky, Math.max(1.4, r * 0.055), 0, 7); c.fill(); }
+    }
+    c.restore();
+    c.strokeStyle = '#8a6a3a'; c.lineWidth = Math.max(2.5, r * 0.11); c.beginPath(); c.ellipse(0, 0, rx, ry, 0, 0, 7); c.stroke();
+    c.strokeStyle = '#d8c28a'; c.lineWidth = Math.max(1, r * 0.04); c.beginPath(); c.ellipse(0, 0, rx, ry, 0, 0, 7); c.stroke();
+    c.fillStyle = '#4a4f55'; c.strokeStyle = '#1d1511'; c.lineWidth = 1;
+    for (let k = 0; k < 8; k++) { const ang = (k / 8) * 6.283; c.beginPath(); c.arc(Math.cos(ang) * rx, Math.sin(ang) * ry, Math.max(2, r * 0.08), 0, 7); c.fill(); c.stroke(); }
+    c.restore();
   }
 
   private drawPart(c: CanvasRenderingContext2D, p: Part) {

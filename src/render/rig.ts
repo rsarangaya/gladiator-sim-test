@@ -429,9 +429,14 @@ export function drawFighter(c: CanvasRenderingContext2D, s: DrawState): Tip | nu
   if (!arms.s.dis && sp.shield) drawShield(c, sp.shield.name, arms.s.h[0], arms.s.h[1], P.sL, L);
   if (s.netArm && !arms.s.dis) {
     const h = arms.s.h;
-    c.strokeStyle = '#d8cdb0'; c.lineWidth = 1.5; c.fillStyle = 'rgba(216,205,176,.28)';
-    c.beginPath(); c.arc(h[0] - 2, h[1] + 3, 11, 0, 7); c.fill(); c.stroke();
-    c.beginPath(); c.moveTo(h[0] - 12, h[1] + 3); c.lineTo(h[0] + 8, h[1] + 3); c.moveTo(h[0] - 2, h[1] - 7); c.lineTo(h[0] - 2, h[1] + 13); c.stroke();
+    c.save(); c.translate(h[0] - 2, h[1] + 4);
+    c.fillStyle = 'rgba(60,45,25,.35)'; c.beginPath(); c.ellipse(0, 0, 12, 13, 0, 0, 7); c.fill();
+    c.strokeStyle = '#e6d9b4'; c.lineWidth = 1.2; c.beginPath();
+    for (let k = -3; k <= 3; k++) { c.moveTo(-14 + k * 4.5, -14); c.lineTo(14 + k * 4.5, 14); c.moveTo(14 + k * 4.5, -14); c.lineTo(-14 + k * 4.5, 14); }
+    c.save(); c.clip(); c.stroke(); c.restore();
+    c.strokeStyle = '#8a6a3a'; c.lineWidth = 2.4; c.beginPath(); c.ellipse(0, 0, 12, 13, 0, 0, 7); c.stroke();
+    c.fillStyle = '#4a4f55'; for (let k = 0; k < 6; k++) { const a = (k / 6) * 6.283; c.beginPath(); c.arc(Math.cos(a) * 12, Math.sin(a) * 13, 1.8, 0, 7); c.fill(); }
+    c.restore();
   }
 
   // head

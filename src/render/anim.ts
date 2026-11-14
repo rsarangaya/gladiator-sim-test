@@ -50,6 +50,42 @@ const VARIANTS: Record<Style, [Partial<Pose>, Partial<Pose>][]> = {
   punch: [STYLES.punch as [Partial<Pose>, Partial<Pose>], [pose({ wU: 30, wL: 120, lean: 2, x: -4 }), pose({ wU: 75, wL: 60, lean: 14, x: 10, ...LUNGE })]],
 };
 
+const hash = (n: number) => { let x = Math.imul(n + 1, 2654435761) >>> 0; x ^= x >>> 15; return x >>> 0; };
+/** Pseudo-random but never the same variant twice in a row. */
+function pick(n: number, seq: number): number {
+  if (n <= 1) return 0;
+  const cur = hash(seq) % n, prev = seq > 0 ? hash(seq - 1) % n : -1;
+  return cur === prev ? (cur + 1 + (hash(seq + 99) % (n - 1))) % n : cur;
+}
+VARIANTS.thrust.push(
+  [pose({ wU: 40, wL: 20, lean: -2, x: -6, drop: 2, sU: 20, sL: 50 }), pose({ wU: 76, wL: 80, lean: 16, x: 18, drop: 7, fU: 46, fL: 14, bU: -32, bL: -9 })],
+  [pose({ wU: 130, wL: 110, lean: -4, x: -4 }), pose({ wU: 70, wL: 84, lean: 20, x: 14, drop: 9, ...LUNGE })],
+);
+VARIANTS.slash.push([pose({ wU: -10, wL: 20, lean: 8, x: -4, drop: 6 }), pose({ wU: 150, wL: 160, lean: 10, x: 8, drop: 2, ...LUNGE })]);
+VARIANTS.swing.push([pose({ wU: 170, wL: 205, lean: -18, x: -9, drop: 0 }), pose({ wU: 70, wL: 55, lean: 28, x: 16, drop: 12, ...LUNGE })]);
+VARIANTS.punch.push([pose({ wU: 100, wL: 150, lean: -2, x: -4 }), pose({ wU: 55, wL: 75, lean: 18, x: 12, drop: 4, ...LUNGE })]);
+const SPECIAL: Partial<Record<ActionId, [Partial<Pose>, Partial<Pose>][]>> = {
+  net: [
+    [pose({ sU: 215, sL: 238, lean: -8, x: -4, wU: 25, wL: 55 }), pose({ sU: 80, sL: 86, lean: 18, x: 10, drop: 5, ...LUNGE, wU: 25, wL: 55 })],
+    [pose({ sU: 20, sL: 150, lean: -12, x: -6, wU: 25, wL: 55, drop: 4 }), pose({ sU: 95, sL: 100, lean: 20, x: 12, drop: 8, ...LUNGE, wU: 25, wL: 55 })],
+    [pose({ sU: 170, sL: 120, lean: 4, x: -8, wU: 30, wL: 60 }), pose({ sU: 60, sL: 70, lean: 16, x: 12, drop: 4, ...LUNGE, wU: 30, wL: 60 })],
+  ],
+  bash: [
+    [pose({ sU: -12, sL: 18, lean: -2, x: -6, wU: 25, wL: 55 }), pose({ sU: 86, sL: 94, lean: 18, x: 14, drop: 5, ...LUNGE, wU: 25, wL: 55 })],
+    [pose({ sU: 40, sL: 120, lean: -8, x: -8, wU: 25, wL: 55 }), pose({ sU: 70, sL: 80, lean: 22, x: 16, drop: 8, ...LUNGE, wU: 25, wL: 55 })],
+  ],
+  hook: [
+    [pose({ wU: 150, wL: 175, lean: -6, x: -5 }), pose({ wU: 30, wL: 60, lean: 20, x: 12, drop: 6, ...LUNGE })],
+    [pose({ wU: 60, wL: 140, lean: 2, x: -8, drop: 4 }), pose({ wU: 110, wL: 50, lean: 14, x: 14, drop: 8, ...LUNGE })],
+    [pose({ wU: 90, wL: 200, lean: -10, x: -6 }), pose({ wU: 65, wL: 40, lean: 22, x: 10, drop: 5, ...LUNGE })],
+  ],
+  cleave: [
+    [pose({ wU: 215, wL: 238, lean: -10, x: -6, drop: 2 }), pose({ wU: 55, wL: 70, lean: 24, x: 12, drop: 8, ...LUNGE })],
+    [pose({ wU: 150, wL: 235, lean: -16, x: -10 }), pose({ wU: 40, wL: 60, lean: 30, x: 16, drop: 12, ...LUNGE })],
+    [pose({ wU: 120, wL: 60, lean: -8, x: -12, drop: 0 }), pose({ wU: 100, wL: 120, lean: 26, x: 14, drop: 10, ...LUNGE })],
+  ],
+};
+
 function styleFor(w: WeaponDef, id: ActionId): Style {
   if (id === 'heavy' || id === 'cleave') return 'swing';
   if (id === 'hook') return 'slash';
@@ -128,16 +164,6 @@ export function poseFor(a: AnimIn): Pose {
         p = age < ac ? mix(IDLE, hold, easeOut(t)) : mix(hold, IDLE, clamp01((age - ac) / Math.max(1, rc)));
         break;
       }
-      case 'net': {
-        const W = pose({ sU: 215, sL: 238, lean: -8, x: -4, wU: 25, wL: 55 });
-        const S = pose({ sU: 80, sL: 86, lean: 18, x: 10, drop: 5, ...LUNGE, wU: 25, wL: 55 });
-        p = swingMix(W, S, age, su, ac, rc); break;
-      }
-      case 'bash': {
-        const W = pose({ sU: -12, sL: 18, lean: -2, x: -6, wU: 25, wL: 55 });
-        const S = pose({ sU: 86, sL: 94, lean: 18, x: 14, drop: 5, ...LUNGE, wU: 25, wL: 55 });
-        p = swingMix(W, S, age, su, ac, rc); break;
-      }
       case 'whirl': {
         // arms flung wide, the body drives the turn: a short sweeping arc instead of spinning limbs
         const tot = su + ac + rc, f = clamp01(age / tot);
@@ -146,8 +172,9 @@ export function poseFor(a: AnimIn): Pose {
         break;
       }
       default: {
-        const st = styleFor(a.weapon, act.id), vs = VARIANTS[st];
-        const [W, S] = vs[((a.seq ?? 0) % vs.length + vs.length) % vs.length];
+        const sp = SPECIAL[act.id], seq = a.seq ?? 0;
+        const vs = sp ?? VARIANTS[styleFor(a.weapon, act.id)];
+        const [W, S] = vs[pick(vs.length, seq)];
         const Wp = pose(W), Sp = pose(S);
         p = swingMix(Wp, Sp, age, su, ac, rc);
       }
