@@ -531,7 +531,8 @@ function careerPanel(s: Save) {
         <span>${done ? 'defeated ✓' : next ? 'NEXT' : ''}</span></div>`;
     }).join('');
   }
-  return `<div class="card" style="margin:10px 0;background:#241b14">${head}${rows ? `<div style="max-height:250px;overflow:auto;margin-top:6px">${rows}</div>` : ''}</div>`;
+  const label = inPrelims(c) ? 'Qualifiers' : 'Rankings';
+  return `<div class="card ranks" style="margin:10px 0;background:#241b14">${head}${rows ? `<details class="rk"><summary class="ibtn">${label}</summary><div style="max-height:250px;overflow:auto;margin-top:6px">${rows}</div></details>` : ''}</div>`;
 }
 
 function endText(s: Save) {
