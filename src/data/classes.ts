@@ -2,11 +2,11 @@ import type { ArmorSet, ClassId, FighterSpec, Personality, ShieldDef, Stats, Wea
 
 export const WEAPONS: Record<string, WeaponDef> = {
   gladius:    { name: 'Gladius',         dmg: 14.8, reach: 6,   speed: 1.0,  edged: true },
-  scimitar:   { name: 'Hooked Scimitar', dmg: 17.5, reach: 5.5, speed: 0.95, edged: true },
-  spear:      { name: 'Long Spear',      dmg: 14.3, reach: 10,  speed: 1.1,  edged: true },
-  trident:    { name: 'Trident',         dmg: 17.6, reach: 9,   speed: 0.95, edged: true },
+  scimitar:   { name: 'Hooked Scimitar', dmg: 17.4, reach: 5.5, speed: 0.95, edged: true },
+  spear:      { name: 'Long Spear',      dmg: 15.6, reach: 10,  speed: 1.15, edged: true, closeMin: 5.5 },
+  trident:    { name: 'Trident',         dmg: 18.6, reach: 9,   speed: 1.05, edged: true, closeMin: 5 },
   twinBlades: { name: 'Twin Blades',     dmg: 12.5,  reach: 5,   speed: 0.8,  edged: true, dual: true },
-  greataxe:   { name: 'Great Axe',       dmg: 15, reach: 7.5, speed: 1.5,  edged: true, twoHanded: true },
+  greataxe:   { name: 'Great Axe',       dmg: 16.4, reach: 7.5, speed: 1.5,  edged: true, twoHanded: true },
   fists:      { name: 'Bare Hands',      dmg: 3,  reach: 3.6,  speed: 0.9,  edged: false },
 };
 
@@ -32,22 +32,22 @@ export interface ClassDef {
 }
 
 export const CLASSES: Record<ClassId, ClassDef> = {
-  murmillo:    { id: 'murmillo', label: 'Murmillo', blurb: 'Tank. Sword, big shield, heavy armor.',
+  murmillo:    { id: 'murmillo', label: 'Murmillo', blurb: 'Tank. Big shield, heavy armor, lots of health. Slow on his feet.',
                  base: { str: 14, agi: 8, vit: 15, end: 12, tec: 11, spi: 12 }, weapon: 'gladius', shield: 'scutum',
                  armor: armor(22, 22, 14, 10), signature: 'Shield Bash', personality: 'defensive' },
-  thraex:      { id: 'thraex', label: 'Thraex', blurb: 'Skirmisher. Curved blade, small shield.',
+  thraex:      { id: 'thraex', label: 'Thraex', blurb: 'Skirmisher. Fast and accurate, hook strike ignores blocks. Light on health and armor.',
                  base: { str: 11, agi: 14, vit: 11, end: 10, tec: 14, spi: 11 }, weapon: 'scimitar', shield: 'parma',
                  armor: armor(18, 18, 10, 6), signature: 'Hook Strike', personality: 'balanced' },
-  hoplomachus: { id: 'hoplomachus', label: 'Hoplomachus', blurb: 'Reach. Spear and shield.',
+  hoplomachus: { id: 'hoplomachus', label: 'Hoplomachus', blurb: 'Reach. Spear outranges everyone and braces for counters. Slow and weak up close.',
                  base: { str: 12, agi: 10, vit: 12, end: 12, tec: 14, spi: 12 }, weapon: 'spear', shield: 'hoplon',
                  armor: armor(18, 20, 10, 8), signature: 'Spear Wall', personality: 'balanced' },
-  retiarius:   { id: 'retiarius', label: 'Retiarius', blurb: 'Control. Net and trident, light armor.',
+  retiarius:   { id: 'retiarius', label: 'Retiarius', blurb: 'Control. Trident and net keep foes at bay. Light armor, low spirit, weak up close.',
                  base: { str: 9, agi: 16, vit: 10, end: 12, tec: 13, spi: 8 }, weapon: 'trident',
                  armor: armor(6, 12, 20, 4), signature: 'Net Throw', personality: 'balanced' },
-  dimachaerus: { id: 'dimachaerus', label: 'Dimachaerus', blurb: 'Glass cannon. Dual blades.',
+  dimachaerus: { id: 'dimachaerus', label: 'Dimachaerus', blurb: 'Glass cannon. Two fast blades and whirlwind. Almost no armor, tires quickly.',
                  base: { str: 15, agi: 16, vit: 8, end: 8, tec: 13, spi: 9 }, weapon: 'twinBlades',
                  armor: armor(8, 8, 4, 2), signature: 'Whirlwind', personality: 'aggressive' },
-  brute:       { id: 'brute', label: 'Brute', blurb: 'Power. Two-handed axe, slow heavy hits.',
+  brute:       { id: 'brute', label: 'Brute', blurb: 'Power. Great axe cleaves through armor. Slow, easy to dodge, poor mobility.',
                  base: { str: 17, agi: 6, vit: 14, end: 13, tec: 10, spi: 10 }, weapon: 'greataxe',
                  armor: armor(11, 15, 7, 5), signature: 'Cleave', personality: 'aggressive' },
 };

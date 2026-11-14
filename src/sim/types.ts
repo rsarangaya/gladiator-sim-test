@@ -14,6 +14,7 @@ export interface WeaponDef {
   name: string;
   dmg: number;       // base damage per hit
   reach: number;     // arena units
+  closeMin?: number; // long weapons are awkward inside this distance (less accurate, weaker)
   speed: number;     // multiplier on startup/recovery (>1 = slower)
   edged: boolean;    // can cause bleeding
   dual?: boolean;    // light attack lands two hits

@@ -40,6 +40,8 @@ export const TUNING = {
   arenaWidth: 60,
   startPos: [20, 40] as [number, number],
   minGap: 3.5,
+  crowdHit: 0.05,          // long weapons used inside their closeMin distance: hit chance penalty
+  crowdDmg: 0.9,           // ...and damage multiplier
   moveBase: 0.9,           // units per move-tick at 0 agi
   moveAgi: 0.012,
   netSnareTicks: 80,

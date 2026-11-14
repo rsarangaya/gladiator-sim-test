@@ -83,6 +83,7 @@ export function simulateFight(a: FighterSpec, b: FighterSpec, seed: number, opts
     let d = att.weapon.dmg * act.dmgMult * (0.5 + s.str / 100) * ZONE_DMG_MULT[zone];
     d *= range(rng, 0.85, 1.15) * att.form * weaponArmMod(att) * TUNING.damageScale;
     if (att.stam / att.maxStam < 0.3) d *= 0.85;
+    if (att.weapon.closeMin && Math.abs(att.x - def.x) < att.weapon.closeMin) d *= TUNING.crowdDmg;
     const m = att.mods;
     d *= m.dmg;
     if (act.id === 'light') d *= m.light; else if (act.id === 'heavy') d *= m.heavy; else if (SIG.has(act.id)) d *= m.sig;
@@ -121,7 +122,8 @@ export function simulateFight(a: FighterSpec, b: FighterSpec, seed: number, opts
       // hit roll
       const acc = ((att.spec.stats.agi + att.spec.stats.tec) / 2) * accMod(att);
       const eva = def.spec.stats.agi * 0.9 * evaMod(def) * def.mods.eva * (def.act?.attack ? 0.8 : 1);
-      const pHit = clamp(TUNING.hitBase + (acc - eva) / 200 + att.mods.hit, TUNING.hitMin, TUNING.hitMax);
+      const crowd = att.weapon.closeMin && dist < att.weapon.closeMin ? TUNING.crowdHit : 0;
+      const pHit = clamp(TUNING.hitBase + (acc - eva) / 200 + att.mods.hit - crowd, TUNING.hitMin, TUNING.hitMax);
       if (!chance(rng, pHit)) { emit({ ...base, result: 'whiff' }); continue; }
 
       // zone with precision
