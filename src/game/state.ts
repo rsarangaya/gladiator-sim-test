@@ -448,7 +448,11 @@ export const MAX_TIER = 4;
 /** Tests switch random events off so day-to-day state stays deterministic. */
 export const EVENTS = { enabled: true };
 
-export interface Encounter { name: string; classId: ClassId; budget: number; tier: number; skillN: number; accepted: boolean }
+export interface Encounter { name: string; classId: ClassId; budget: number; tier: number; skillN: number; accepted: boolean; dueDay?: number }
+/** Days you get to prepare (train, rest, shop, spar) before an infamous challenge lapses into a refusal. */
+export const CHALLENGE_DAYS = 3;
+/** Days left to answer, counting today (0 = the challenge lapses when the day ends). */
+export const challengeDaysLeft = (s: Save) => (s.encounter && !s.encounter.accepted ? Math.max(0, (s.encounter.dueDay ?? s.day) - s.day) : 0);
 
 const BOSS_FIRST = ['Plougherous', 'Vorrax', 'Maleficus', 'Gorgonus', 'Ashkar', 'Thulgar', 'Morbius', 'Dreadmoor', 'Cruentus', 'Sanguinar', 'Grimwald', 'Ixion'];
 const BOSS_TITLES = ['the Murderer', 'the Butcher', 'the Flayer', 'the Merciless', 'Skullsplitter', 'the Widowmaker', 'the Red Dawn', 'the Ender', 'Bonegrinder', 'the Bloodletter', 'the Unburied', 'Deathbringer'];
@@ -489,6 +493,8 @@ function recoverFromBed(s: Save) {
 export function newDay(s: Save) {
   s.day++;
   s.news = [];
+  // an unanswered challenge lapses: the crowd takes it as a refusal
+  if (s.encounter && !s.encounter.accepted && s.day > (s.encounter.dueDay ?? 0)) s.news.push(`You let the challenge pass. ${declineEncounter(s)}`);
   s.neglect = injurySeverity(s) >= 4 && !s.restedToday ? s.neglect + 1 : 0;
   s.restedToday = false;
   if (s.sick > 0) s.sick--;
@@ -544,8 +550,9 @@ function maybeEncounter(s: Save, rng: () => number) {
   const eligible = s.fights >= 3 && (!c || !inPrelims(c));
   if (!eligible || s.day - (s.lastEncounter ?? -99) < 10 || rng() > 0.1) return;
   s.encounter = makeEncounter(s, rng);
+  s.encounter.dueDay = s.day + CHALLENGE_DAYS;
   s.lastEncounter = s.day;
-  s.news.push(`${s.encounter.name} has issued a challenge!`);
+  s.news.push(`${s.encounter.name} has issued a challenge! You have ${CHALLENGE_DAYS} days to prepare before you must answer.`);
 }
 
 /** An infamous challenger is built relative to YOU (a little stronger, two more skills), so the odds stay winnable with preparation. */
@@ -721,6 +728,7 @@ export function loadGame(): Save | null {
       s.mode ??= 'free';
       s.gear ??= freshGear();
       s.added.spi ??= 0; s.added.strL ??= 0; s.inv ??= [];
+      if (s.encounter && !s.encounter.accepted) s.encounter.dueDay ??= s.day + CHALLENGE_DAYS;
       s.news ??= []; s.sick ??= 0; s.bedridden ??= 0; s.runSeed ??= 1; s.neglect ??= 0; s.skills ??= []; s.skillPoints ??= 0; s.trainerBuys ??= 0; s.perks ??= { weapon: [], armor: [] };
       if (s.career && !s.career.prelim) { s.career.prelim = []; s.career.prelimWins = 0; s.career.size ??= s.career.ladder.length; }
       return s;

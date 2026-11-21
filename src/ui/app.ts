@@ -4,7 +4,7 @@ import {
   MAX_ENERGY, STAT_SHORT, buyItem, dropItem, setHand, useItem, permanentWounds, PROSTHETIC_COST, REST_GOLD, START_POINTS, STAT_KEYS, TIER_COSTS,
   actionRng, hireTrainer, trainerCost, buyProsthetic, buyTier, clearSave, level, loadGame, newGame, openBout, rest, runBout, saveGame,
   settleBout, spendPoint, stats, train, type Bout, type Difficulty, type Save, type Mode,
-  learnSkill, CAREER_SIZES, PRELIMS, RARITIES, acceptEncounter, declineEncounter, encounterSpec, estimateOdds, gearCondition, inPrelims, playerSpec, repair, repairCost, scout, waitCost, ladderRank, loadScores, retire, score, waitDay,
+  learnSkill, challengeDaysLeft, CAREER_SIZES, PRELIMS, RARITIES, acceptEncounter, declineEncounter, encounterSpec, estimateOdds, gearCondition, inPrelims, playerSpec, repair, repairCost, scout, waitCost, ladderRank, loadScores, retire, score, waitDay,
 } from '../game/state';
 import { drawPortrait } from '../render/portrait';
 import { INV_SLOTS, ITEMS, ITEM_IDS } from '../data/items';
@@ -166,10 +166,9 @@ function hub() {
   const s = save!;
   if (!s.alive) return runEnd();
   if (s.pending) return arena(); // an entered fight is binding: reopening resumes the same one
-  if (s.encounter && !s.encounter.accepted) return offerScreen(s); // an infamous challenger must be answered first
   const g = gearCondition(s);
   const todo = [s.unspent > 0 ? `${s.unspent} stat point${s.unspent > 1 ? 's' : ''} to spend (tap +)` : '', s.skillPoints > 0 ? `${s.skillPoints} skill point${s.skillPoints > 1 ? 's' : ''}: visit the scroll` : ''].filter(Boolean);
-  html(`<div class="town">${topBar(s)}${tipBanner(s)}${newsPanel(s)}${careerPanel(s)}
+  html(`<div class="town">${topBar(s)}${tipBanner(s)}${newsPanel(s)}${challengeBanner(s)}${careerPanel(s)}
     <div class="stagewrap" id="stage"></div>
     <div class="chips">${chips(s)}</div>
     ${injuryPanel(s)}
@@ -187,6 +186,7 @@ function hub() {
     </div></div>`);
   document.getElementById('stage')!.appendChild(scene.el);
   fillIcons(); wireTips(); wireStatButtons(s, hub);
+  on('chal', () => offerScreen(s));
   const spec = playerSpec(s);
   const badges = {
     skills: s.skillPoints > 0 ? String(s.skillPoints) : undefined,
@@ -578,6 +578,15 @@ function newsPanel(s: Save) {
   return `<div class="card" style="margin:8px 0;background:#241b14"><div class="dim" style="font-size:12px">Overnight</div>${s.news.map((n) => `<div>${n}</div>`).join('')}</div>`;
 }
 
+/** A pending infamous challenge: you have a few days to prepare, then it lapses into a refusal. */
+function challengeBanner(s: Save) {
+  const e = s.encounter;
+  if (!e || e.accepted) return '';
+  const left = challengeDaysLeft(s);
+  const when = left <= 0 ? 'Answer today or it counts as a refusal' : `${left} more day${left === 1 ? '' : 's'} to prepare`;
+  return `<div class="card" style="margin:10px 0;border:2px solid #7a0d12;background:#1c0a0c;display:flex;flex-wrap:wrap;align-items:center;gap:10px;justify-content:space-between"><div><div class="boss" style="font-size:22px;margin:0;padding-bottom:6px">&#9760; ${e.name} &#9760;</div><div class="dim">${CLASSES[e.classId].label} challenges you. ${when}. Train, rest, shop, spar, then answer.</div></div><button class="pri" id="chal">View challenge</button></div>`;
+}
+
 function offerScreen(s: Save) {
   const e = s.encounter!;
   const career = s.mode === 'career' && s.career && !inPrelims(s.career);
@@ -588,8 +597,10 @@ function offerScreen(s: Save) {
     <p>Scouting estimate: ${oddsInfo(estimateOdds(playerSpec(s), encounterSpec(e)))}</p>
     ${estimateOdds(playerSpec(s), encounterSpec(e)) < 0.25 ? '<div class="warn"><b>⚠ You are badly outmatched.</b> Accepting is likely to get you killed. Declining costs ranking, so train up before the next challenger if you can.</div>' : ''}
     <p style="color:#ff8a6a">Declining is safe, but costs you: ${career ? 'your ranking drops by 1 or 2 places.' : 'gold and reputation.'}</p>
-    <div class="row"><button class="pri" id="acc">Accept the challenge</button><button id="dec">Decline</button></div></div>`, true);
+    <p class="dim">${challengeDaysLeft(s) <= 0 ? 'This is your last day to answer.' : `You can prepare for ${challengeDaysLeft(s)} more day${challengeDaysLeft(s) === 1 ? '' : 's'} (training, rest, shop, sparring), then it counts as a refusal.`}</p>
+    <div class="row"><button class="pri" id="acc">Accept the challenge</button><button id="prep">Prepare first</button><button id="dec">Decline</button></div></div>`, true);
   on('acc', () => { acceptEncounter(s); bout = openBout(s); commit(); fightCard(); });
+  on('prep', () => hub());
   on('dec', () => { msg = declineEncounter(s); commit(); hub(); });
 }
 

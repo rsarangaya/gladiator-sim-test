@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
-  EVENTS, acceptEncounter, declineEncounter, dropRank, inPrelims, injurySeverity, ladderBudgets, newDay, newGame, prepareBout,
+  CHALLENGE_DAYS, EVENTS, acceptEncounter, challengeDaysLeft, declineEncounter, dropRank, inPrelims, injurySeverity, ladderBudgets, newDay, newGame, prepareBout,
   rest, rollTier, runBout, settleBout, totalPoints, train, type Save,
 } from '../src/game/state';
 import { mulberry32 } from '../src/sim';
@@ -106,6 +106,23 @@ describe('infamous challengers', () => {
     expect(out.text.join(' ')).toMatch(/Loot|Spoils/);
     expect(s.encounter?.accepted ?? false).toBe(false); // that challenge is over (a new one may arrive later)
     expect(s.career!.beaten).toBe(beaten);
+  });
+
+  it('a challenge gives days to prepare, then lapses into a refusal', () => {
+    const s = career();
+    s.career!.beaten = 6;
+    until(s, (x) => !!x.encounter);
+    const e = s.encounter!;
+    expect(e.dueDay).toBe(s.day + CHALLENGE_DAYS);
+    expect(challengeDaysLeft(s)).toBe(CHALLENGE_DAYS);
+    EVENTS.enabled = false;
+    const before = s.career!.beaten;
+    for (let i = 0; i < CHALLENGE_DAYS; i++) { newDay(s); expect(s.encounter).toBeDefined(); }
+    newDay(s); // the last day passes unanswered
+    EVENTS.enabled = true;
+    expect(s.encounter).toBeUndefined();
+    expect(s.news.join(' ')).toMatch(/let the challenge pass/);
+    expect(before - s.career!.beaten).toBeGreaterThanOrEqual(1);
   });
 
   it('losing to a boss does not end a champions reign', () => {
